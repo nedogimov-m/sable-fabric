@@ -1,28 +1,28 @@
 package dev.ryanhcode.sable;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import dev.ryanhcode.sable.config.ConfigSpec;
 
 public final class SableConfig {
 
-    public static final ModConfigSpec SPEC;
+    public static final ConfigSpec SPEC;
 
-    public static final ModConfigSpec.BooleanValue SUB_LEVEL_SPLITTING;
-    public static final ModConfigSpec.IntValue SUB_LEVEL_SPLITTING_HEATMAP_STEPS_PER_TICK;
-    public static final ModConfigSpec.DoubleValue SUB_LEVEL_TRACKING_RANGE;
-    public static final ModConfigSpec.BooleanValue SUB_LEVELS_WITH_PLAYERS_CANNOT_UNLOAD;
-    public static final ModConfigSpec.DoubleValue SUB_LEVEL_REMOVE_MIN;
-    public static final ModConfigSpec.DoubleValue SUB_LEVEL_REMOVE_MAX;
-    public static final ModConfigSpec.DoubleValue VELOCITY_RETAINED_ON_LOAD;
-    public static final ModConfigSpec.DoubleValue SUB_LEVEL_PUNCH_STRENGTH_MULTIPLIER;
-    public static final ModConfigSpec.DoubleValue SUB_LEVEL_PUNCH_DOWNWARD_STRENGTH_MULTIPLIER;
-    public static final ModConfigSpec.IntValue SUB_LEVEL_PUNCH_COOLDOWN_TICKS;
-    public static final ModConfigSpec.BooleanValue DISABLE_UDP_PIPELINE;
-    public static final ModConfigSpec.BooleanValue ATTEMPT_UDP_NETWORKING;
-    public static final ModConfigSpec.BooleanValue SUB_LEVEL_SAVING_LOG_MESSAGE;
-    public static final ModConfigSpec.BooleanValue VERBOSE_SERIALIZATION_LOGGING;
+    public static final ConfigSpec.BooleanValue SUB_LEVEL_SPLITTING;
+    public static final ConfigSpec.IntValue SUB_LEVEL_SPLITTING_HEATMAP_STEPS_PER_TICK;
+    public static final ConfigSpec.DoubleValue SUB_LEVEL_TRACKING_RANGE;
+    public static final ConfigSpec.BooleanValue SUB_LEVELS_WITH_PLAYERS_CANNOT_UNLOAD;
+    public static final ConfigSpec.DoubleValue SUB_LEVEL_REMOVE_MIN;
+    public static final ConfigSpec.DoubleValue SUB_LEVEL_REMOVE_MAX;
+    public static final ConfigSpec.DoubleValue VELOCITY_RETAINED_ON_LOAD;
+    public static final ConfigSpec.DoubleValue SUB_LEVEL_PUNCH_STRENGTH_MULTIPLIER;
+    public static final ConfigSpec.DoubleValue SUB_LEVEL_PUNCH_DOWNWARD_STRENGTH_MULTIPLIER;
+    public static final ConfigSpec.IntValue SUB_LEVEL_PUNCH_COOLDOWN_TICKS;
+    public static final ConfigSpec.BooleanValue DISABLE_UDP_PIPELINE;
+    public static final ConfigSpec.BooleanValue ATTEMPT_UDP_NETWORKING;
+    public static final ConfigSpec.BooleanValue SUB_LEVEL_SAVING_LOG_MESSAGE;
+    public static final ConfigSpec.BooleanValue VERBOSE_SERIALIZATION_LOGGING;
 
     static {
-        final ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+        final ConfigSpec.Builder builder = new ConfigSpec.Builder();
 
         SUB_LEVEL_SPLITTING = builder
                 .comment("Whether sub-levels can split when parts are separated")

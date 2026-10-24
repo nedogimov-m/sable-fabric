@@ -10,13 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(RemotePlayer.class)
 public abstract class RemotePlayerMixin implements LivingEntityStickExtension {
 
-    @Inject(method = "aiStep", at = @At("HEAD"))
-    private void sable$updateRotLerp(final CallbackInfo ci) {
-        this.sable$setupLerp();
-    }
-
-    @Inject(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/RemotePlayer;updateSwingTime()V", shift = At.Shift.BEFORE))
-    private void sable$updateSubLevelPosition(final CallbackInfo ci) {
-        this.sable$applyLerp();
-    }
+    // EntityMixin now advances plot interpolation after Entity.tick, including
+    // RemotePlayer, while vanilla's InterpolationHandler owns body rotation.
 }

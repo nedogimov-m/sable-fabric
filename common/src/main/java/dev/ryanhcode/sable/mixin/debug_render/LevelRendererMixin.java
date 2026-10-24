@@ -1,127 +1,65 @@
 package dev.ryanhcode.sable.mixin.debug_render;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.ryanhcode.sable.companion.math.BoundingBox3dc;
-import dev.ryanhcode.sable.companion.math.BoundingBox3ic;
-import dev.ryanhcode.sable.companion.math.Pose3dc;
+import dev.ryanhcode.sable.SableClient;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
+import dev.ryanhcode.sable.mixinhelpers.PlotBoxGizmo;
 import dev.ryanhcode.sable.network.client.ClientSableInterpolationState;
-import dev.ryanhcode.sable.network.client.SubLevelSnapshotInterpolator;
 import dev.ryanhcode.sable.sublevel.ClientSubLevel;
-import dev.ryanhcode.sable.sublevel.SubLevel;
-import net.minecraft.client.Camera;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.*;
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
+import net.minecraft.client.gui.components.debug.DebugScreenEntries;
+import net.minecraft.client.renderer.extract.LevelExtractor;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.SimpleGizmoCollector;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
-import org.joml.Vector3dc;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(LevelRenderer.class)
+/** Capture native gizmo geometry before LevelExtractor hands its collector to the renderer. */
+@Mixin(LevelExtractor.class)
 public class LevelRendererMixin {
+    @Shadow private @Nullable ClientLevel level;
+    @Shadow @Final private LevelRenderState levelRenderState;
+    @Shadow @Final private SimpleGizmoCollector mainThreadGizmos;
 
-    @Shadow
-    private ClientLevel level;
-
-    @Inject(method = "renderLevel", at = @At("TAIL"))
-    private void renderLevel(final DeltaTracker deltaTracker, final boolean bl, final Camera camera, final GameRenderer gameRenderer, final LightTexture lightTexture, final Matrix4f matrix4f, final Matrix4f matrix4f2, final CallbackInfo ci) {
-        final Minecraft minecraft = Minecraft.getInstance();
-
-        if (!minecraft.getEntityRenderDispatcher().shouldRenderHitBoxes() || Minecraft.getInstance().showOnlyReducedInfo()) {
-            return;
-        }
-
-        final SubLevelContainer container = SubLevelContainer.getContainer(this.level);
-
-        final MultiBufferSource.BufferSource bufferSource = minecraft.renderBuffers().bufferSource();
-        final VertexConsumer consumer = bufferSource.getBuffer(RenderType.LINES);
-
-        final double cx = camera.getPosition().x;
-        final double cy = camera.getPosition().y;
-        final double cz = camera.getPosition().z;
-
-        final PoseStack ps = new PoseStack();
-        ps.mulPose(matrix4f);
-
-        for (final SubLevel subLevel : container.getAllSubLevels()) {
-            final BoundingBox3dc bounds = subLevel.boundingBox();
-
-            LevelRenderer.renderLineBox(
-                    ps,
-                    consumer,
-                    bounds.minX() - cx,
-                    bounds.minY() - cy,
-                    bounds.minZ() - cz,
-                    bounds.maxX() - cx,
-                    bounds.maxY() - cy,
-                    bounds.maxZ() - cz,
-                    0.5f, 0.5f, 0.5f, 0.7f
-            );
-
-            ps.pushPose();
-            final Pose3dc renderPose = ((ClientSubLevel) subLevel).renderPose();
-            final BoundingBox3ic plotBounds = subLevel.getPlot().getBoundingBox();
-
-            final Vector3dc globalCenter = renderPose.position();
-            final Vector3dc localCenter = renderPose.rotationPoint();
-
-            ps.translate(globalCenter.x() - cx, globalCenter.y() - cy, globalCenter.z() - cz);
-            ps.mulPose(new Quaternionf(renderPose.orientation()));
-
-            LevelRenderer.renderLineBox(
-                    ps,
-                    consumer,
-                    -2.0f / 16.0f,
-                    -2.0f / 16.0f,
-                    -2.0f / 16.0f,
-                    2.0f / 16.0f,
-                    2.0f / 16.0f,
-                    2.0f / 16.0f,
-                    0.7f, 0.7f, 0.5f, 1.0f
-            );
-
-            LevelRenderer.renderLineBox(
-                    ps,
-                    consumer,
-                    plotBounds.minX() - localCenter.x(),
-                    plotBounds.minY() - localCenter.y(),
-                    plotBounds.minZ() - localCenter.z(),
-                    plotBounds.maxX() + 1.0 - localCenter.x(),
-                    plotBounds.maxY() + 1.0 - localCenter.y(),
-                    plotBounds.maxZ() + 1.0 - localCenter.z(),
-                    0.9f, 0.5f, 0.5f, 1.0f
-            );
-            ps.popPose();
-
-            if (ClientSableInterpolationState.RENDER_INTERPOLATION_BOUNDS) {
-                final Vector3d boundSize = bounds.size(new Vector3d());
-                final SubLevelSnapshotInterpolator interpolator = ((ClientSubLevel) subLevel).getInterpolator();
-                for (final SubLevelSnapshotInterpolator.Snapshot buffer : interpolator.buffer) {
-                    final Pose3dc pose = buffer.pose();
-
-                    LevelRenderer.renderLineBox(
-                            ps,
-                            consumer,
-                            pose.position().x() - boundSize.x() / 2.0 - cx,
-                            pose.position().y() - boundSize.y() / 2.0 - cy,
-                            pose.position().z() - boundSize.z() / 2.0 - cz,
-                            pose.position().x() + boundSize.x() / 2.0 - cx,
-                            pose.position().y() + boundSize.y() / 2.0 - cy,
-                            pose.position().z() + boundSize.z() / 2.0 - cz,
-                            0.0f, 1.0f, 1.0f, 0.5f
-                    );
+    @Inject(method = "extractGizmos", at = @At("HEAD"))
+    private void sable$extractDebugGizmos(final CallbackInfo ci) {
+        if (this.level == null) return;
+        try (final var ignored = Gizmos.withCollector(this.mainThreadGizmos)) {
+            SableClient.GIZMO_HANDLER.emitGizmos(this.levelRenderState.worldPartialTicks);
+            final Minecraft minecraft = Minecraft.getInstance();
+            if (!minecraft.debugEntries.isCurrentlyEnabled(DebugScreenEntries.ENTITY_HITBOXES) || minecraft.showOnlyReducedInfo()) return;
+            final var container = SubLevelContainer.getContainer(this.level);
+            if (container == null) return;
+            for (final var subLevel : container.getAllSubLevels()) {
+                final var bounds = subLevel.boundingBox();
+                Gizmos.cuboid(new AABB(bounds.minX(), bounds.minY(), bounds.minZ(), bounds.maxX(), bounds.maxY(), bounds.maxZ()),
+                        GizmoStyle.stroke(0xb3808080));
+                final var renderPose = ((ClientSubLevel) subLevel).renderPose(this.levelRenderState.worldPartialTicks);
+                final var plotBounds = subLevel.getPlot().getBoundingBox();
+                final var center = renderPose.rotationPoint();
+                Gizmos.addGizmo(new PlotBoxGizmo(new AABB(center.x() - .125, center.y() - .125, center.z() - .125,
+                        center.x() + .125, center.y() + .125, center.z() + .125), renderPose, GizmoStyle.stroke(0xffb3b380)));
+                if (plotBounds != null) Gizmos.addGizmo(new PlotBoxGizmo(new AABB(plotBounds.minX(), plotBounds.minY(), plotBounds.minZ(),
+                        plotBounds.maxX() + 1.0, plotBounds.maxY() + 1.0, plotBounds.maxZ() + 1.0), renderPose, GizmoStyle.stroke(0xffe68080)));
+                if (ClientSableInterpolationState.RENDER_INTERPOLATION_BOUNDS) {
+                    final var size = bounds.size(new Vector3d()).mul(.5);
+                    for (final var snapshot : ((ClientSubLevel) subLevel).getInterpolator().buffer) {
+                        final var position = snapshot.pose().position();
+                        Gizmos.cuboid(new AABB(position.x() - size.x, position.y() - size.y, position.z() - size.z,
+                                position.x() + size.x, position.y() + size.y, position.z() + size.z), GizmoStyle.stroke(0x8000ffff));
+                    }
                 }
             }
         }
-
-        bufferSource.endLastBatch();
     }
 }

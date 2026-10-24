@@ -11,4 +11,7 @@ public interface ServerChunkCacheAccessor {
     @Invoker
     ChunkHolder invokeGetVisibleChunkIfPresent(long p_140328_);
 
+    @Invoker("clearCache")
+    void sable$clearChunkCache();
+
 }

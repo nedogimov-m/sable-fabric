@@ -2,120 +2,123 @@ package dev.ryanhcode.sable.render.region;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexBuffer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import dev.ryanhcode.sable.Sable;
-import dev.ryanhcode.sable.api.SubLevelHelper;
-import dev.ryanhcode.sable.companion.math.Pose3dc;
 import dev.ryanhcode.sable.sublevel.ClientSubLevel;
-import dev.ryanhcode.sable.sublevel.SubLevel;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ShaderInstance;
+import foundry.veil.api.client.render.vertex.VertexArray;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.ApiStatus;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fc;
 import org.joml.Quaternionf;
-import org.joml.Vector3i;
 
 import java.util.Collection;
+import java.util.List;
 
+/** Explicitly uploaded native voxel mesh; its caller owns the render pass and draw lease. */
 @ApiStatus.Internal
 public abstract class SimpleCulledRenderRegion {
-    private Collection<BlockPos> unbuiltData;
-    private boolean built = false;
-    private VertexBuffer buffer;
-    private Vec3 origin;
+    private List<BlockPos> unbuiltData;
+    private VertexArray buffer;
+    private final Vec3 origin;
+    private final int gridSize;
+    private boolean closed;
+    private int snapshots;
 
     public SimpleCulledRenderRegion(final Collection<BlockPos> blocks) {
-        this.unbuiltData = blocks;
-    }
-
-    public void render(final Matrix4f modelView, final Matrix4f projectionMatrix) {
-        if (!this.built) {
-            this.build();
-        }
-
-        final ShaderInstance shader = RenderSystem.getShader();
-        assert shader != null;
-
-        final Minecraft client = Minecraft.getInstance();
-        final SubLevel subLevel = Sable.HELPER.getContaining(client.level, this.origin);
-
-        Vec3 globalOrigin = this.origin;
-        final Quaternionf globalOrientation = new Quaternionf();
-
-        if (subLevel instanceof final ClientSubLevel clientSubLevel) {
-            final Pose3dc renderPose = clientSubLevel.renderPose();
-            globalOrigin = renderPose.transformPosition(globalOrigin);
-            globalOrientation.set(renderPose.orientation());
-        }
-
-        final Vec3 relativePos = globalOrigin.subtract(client.gameRenderer.getMainCamera().getPosition());
-
-        final Matrix4f modelViewMatrix = new Matrix4f(modelView)
-                .setTranslation(0.0f, 0.0f, 0.0f)
-                .translate((float) relativePos.x, (float) relativePos.y, (float) relativePos.z)
-                .rotate(globalOrientation);
-
-        shader.setDefaultUniforms(VertexFormat.Mode.QUADS, modelViewMatrix, projectionMatrix, client.getWindow());
-        shader.apply();
-
-        this.buffer.bind();
-        this.buffer.draw();
-
-        VertexBuffer.unbind();
-    }
-
-    public void build() {
-        final BlockPos firstBlock = this.unbuiltData.stream().findFirst().orElseThrow();
-        final Vector3i minBlock = new Vector3i(firstBlock.getX(), firstBlock.getY(), firstBlock.getZ());
-        final Vector3i maxBlock = new Vector3i(firstBlock.getX(), firstBlock.getY(), firstBlock.getZ());
-        final Vector3i currentBlock = new Vector3i();
-
+        if (blocks.isEmpty()) throw new IllegalArgumentException("An occlusion region needs blocks");
+        this.unbuiltData = blocks.stream().map(BlockPos::immutable).toList();
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
         for (final BlockPos block : this.unbuiltData) {
-            currentBlock.set(block.getX(), block.getY(), block.getZ());
-            minBlock.min(currentBlock);
-            maxBlock.max(currentBlock);
+            minX = Math.min(minX, block.getX()); minY = Math.min(minY, block.getY()); minZ = Math.min(minZ, block.getZ());
+            maxX = Math.max(maxX, block.getX()); maxY = Math.max(maxY, block.getY()); maxZ = Math.max(maxZ, block.getZ());
         }
+        this.origin = new Vec3(minX, minY, minZ);
+        this.gridSize = Math.max(maxX - minX + 1, Math.max(maxY - minY + 1, maxZ - minZ + 1));
+    }
 
-        int gridSize = maxBlock.x() - minBlock.x() + 1;
-        gridSize = Math.max(gridSize, maxBlock.y() - minBlock.y() + 1);
-        gridSize = Math.max(gridSize, maxBlock.z() - minBlock.z() + 1);
-
-        final BlockPos originBlock = new BlockPos(minBlock.x(), minBlock.y(), minBlock.z());
-        this.origin = Vec3.atLowerCornerOf(originBlock);
-
-        final SimpleCulledRenderRegionBuilder builder = this.createMeshBuilder(gridSize);
-
-        for (final BlockPos blockPos : this.unbuiltData) {
-            builder.add(blockPos.getX() - originBlock.getX(), blockPos.getY() - originBlock.getY(), blockPos.getZ() - originBlock.getZ());
+    /** Retains the CPU mesh owner until submission or render-state reset. */
+    public final class Snapshot implements AutoCloseable {
+        private final Matrix4fc modelView;
+        private boolean released;
+        private Snapshot(final Matrix4fc modelView) {
+            this.modelView = new Matrix4f(modelView);
+            SimpleCulledRenderRegion.this.snapshots++;
         }
+        public Matrix4fc modelView() { return this.modelView; }
+        public VertexArray.Draw prepare(final CommandEncoder encoder) {
+            if (this.released) throw new IllegalStateException("Occlusion snapshot is closed");
+            return SimpleCulledRenderRegion.this.prepareRetained(encoder);
+        }
+        @Override public void close() {
+            if (this.released) return;
+            this.released = true;
+            if (--SimpleCulledRenderRegion.this.snapshots == 0 && SimpleCulledRenderRegion.this.closed)
+                SimpleCulledRenderRegion.this.dispose();
+        }
+    }
 
+    /** Called during world extraction; submission only receives the copied matrix and mesh owner. */
+    public Snapshot extract(final ClientLevel level, final Vec3 cameraPosition, final float partialTick, final Matrix4fc viewRotation) {
+        if (this.closed) throw new IllegalStateException("Occlusion region is closed");
+        final var subLevel = Sable.HELPER.getContaining(level, this.origin);
+        final PoseStack pose = new PoseStack();
+        if (subLevel instanceof final ClientSubLevel clientPlot) {
+            final var frame = clientPlot.renderPose(partialTick);
+            pose.translate(frame.transformPosition(this.origin).subtract(cameraPosition));
+            pose.rotate(new Quaternionf(frame.orientation()));
+            pose.scale((float) frame.scale().x(), (float) frame.scale().y(), (float) frame.scale().z());
+        } else {
+            pose.translate(this.origin.subtract(cameraPosition));
+        }
+        return new Snapshot(new Matrix4f(viewRotation).mul(pose.last().pose()));
+    }
+
+    public VertexArray.Draw prepare(final CommandEncoder encoder) {
+        if (this.closed) throw new IllegalStateException("Occlusion region is closed");
+        return this.prepareRetained(encoder);
+    }
+
+    private VertexArray.Draw prepareRetained(final CommandEncoder encoder) {
+        if (this.buffer == null) this.build(encoder);
+        return this.buffer.retain();
+    }
+
+    private void build(final CommandEncoder encoder) {
+        final SimpleCulledRenderRegionBuilder builder = this.createMeshBuilder(this.gridSize);
+        for (final BlockPos block : this.unbuiltData) builder.add(block.getX() - (int) this.origin.x,
+                block.getY() - (int) this.origin.y, block.getZ() - (int) this.origin.z);
         builder.buildNoGreedy();
-
-        final BufferBuilder bufferBuilder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, this.getVertexFormat());
-        builder.render(new Matrix4f(), bufferBuilder);
-
-        this.unbuiltData = null;
-        this.buffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
-        this.buffer.bind();
-        this.buffer.upload(bufferBuilder.buildOrThrow());
-        this.built = true;
-    }
-
-    public Vec3 getOrigin() {
-        return this.origin;
-    }
-
-    public abstract SimpleCulledRenderRegionBuilder createMeshBuilder(int gridSize);
-
-    public abstract VertexFormat getVertexFormat();
-
-    public void free() {
-        if (this.built) {
-            this.buffer.close();
+        final VertexArray replacement = VertexArray.create(RenderSystem.getDevice(), "Sable occlusion region");
+        try (final ByteBufferBuilder memory = new ByteBufferBuilder(16384)) {
+            final BufferBuilder vertices = new BufferBuilder(memory, PrimitiveTopology.QUADS, this.getVertexFormat());
+            builder.render(new Matrix4f(), vertices);
+            replacement.upload(encoder, vertices.buildOrThrow(), VertexArray.DrawUsage.STATIC);
+        } catch (final RuntimeException | Error failure) {
+            replacement.close();
+            throw failure;
         }
+        this.buffer = replacement;
+        this.unbuiltData = List.of();
+    }
+
+    public Vec3 getOrigin() { return this.origin; }
+    public abstract SimpleCulledRenderRegionBuilder createMeshBuilder(int gridSize);
+    public abstract VertexFormat getVertexFormat();
+    public void free() {
+        if (this.closed) return;
+        this.closed = true;
+        if (this.snapshots == 0) this.dispose();
+    }
+    private void dispose() {
+        this.unbuiltData = List.of();
+        if (this.buffer != null) this.buffer.close();
     }
 }

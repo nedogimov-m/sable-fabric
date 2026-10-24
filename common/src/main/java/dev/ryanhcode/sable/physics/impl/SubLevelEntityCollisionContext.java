@@ -9,7 +9,7 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public final class SubLevelEntityCollisionContext extends EntityCollisionContext {
     public SubLevelEntityCollisionContext(final Entity entity) {
-        super(entity);
+        super(entity, false, false);
     }
 
     /**

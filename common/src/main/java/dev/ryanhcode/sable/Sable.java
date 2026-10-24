@@ -12,9 +12,12 @@ import dev.ryanhcode.sable.physics.config.block_properties.PhysicsBlockPropertie
 import dev.ryanhcode.sable.physics.config.block_properties.PhysicsBlockPropertyTypes;
 import dev.ryanhcode.sable.sublevel.system.SubLevelPhysicsSystem;
 import dev.ryanhcode.sable.sublevel.system.SubLevelTrackingSystem;
+import dev.ryanhcode.sable.sublevel.system.ticket.PhysicsChunkTicketManager;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import dev.ryanhcode.sable.sublevel.tracking_points.SubLevelTrackingPointObserver;
-import net.minecraft.Util;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Util;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.ApiStatus;
@@ -36,6 +39,8 @@ public final class Sable {
 
     @ApiStatus.Internal
     public static void init() {
+        Registry.register(BuiltInRegistries.TICKET_TYPE, sablePath("sub_level_loaded"),
+                PhysicsChunkTicketManager.SUB_LEVEL_LOADED_TICKET_TYPE);
         SableTCPPackets.init();
         SableTags.register();
         PhysicsBlockPropertyTypes.register();
@@ -45,10 +50,10 @@ public final class Sable {
     }
     /**
      * @param path the path to the resource
-     * @return a {@link ResourceLocation} with a {@link Sable#MOD_ID} namespace
+     * @return a {@link Identifier} with a {@link Sable#MOD_ID} namespace
      */
-    public static ResourceLocation sablePath(final String path) {
-        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    public static Identifier sablePath(final String path) {
+        return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
 
     /**

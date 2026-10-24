@@ -42,7 +42,7 @@ public class PathMixin implements PathExtension {
             return original;
         }
 
-        final BlockPos global = BlockPos.containing(subLevel.logicalPose().transformPosition(original.getCenter()));
+        final BlockPos global = BlockPos.containing(subLevel.logicalPose().transformPosition(net.minecraft.world.phys.Vec3.atCenterOf(original)));
         return global;
     }
 
@@ -57,7 +57,7 @@ public class PathMixin implements PathExtension {
             return original;
         }
 
-        return BlockPos.containing(subLevel.logicalPose().transformPosition(original.getCenter()));
+        return BlockPos.containing(subLevel.logicalPose().transformPosition(net.minecraft.world.phys.Vec3.atCenterOf(original)));
     }
 
     @Override

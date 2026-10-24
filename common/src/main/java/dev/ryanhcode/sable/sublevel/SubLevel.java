@@ -227,6 +227,6 @@ public abstract class SubLevel implements SubLevelAccess {
 
     @Override
     public String toString() {
-        return "[name=" + this.name + ", id=" + this.uniqueId + ", global_plot=" + this.plot.plotPos.x + "," + this.plot.plotPos.z + "]";
+        return "[name=" + this.name + ", id=" + this.uniqueId + ", global_plot=" + this.plot.plotPos.x() + "," + this.plot.plotPos.z() + "]";
     }
 }

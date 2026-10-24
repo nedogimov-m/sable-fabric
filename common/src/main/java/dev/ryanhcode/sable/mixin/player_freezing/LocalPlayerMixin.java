@@ -10,7 +10,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.UUID;
 
@@ -18,11 +19,11 @@ import java.util.UUID;
 public abstract class LocalPlayerMixin extends Player implements PlayerFreezeExtension {
 
     public LocalPlayerMixin(final Level level, final BlockPos blockPos, final float f, final GameProfile gameProfile) {
-        super(level, blockPos, f, gameProfile);
+        super(level, gameProfile);
     }
 
-    @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;hasChunkAt(II)Z"))
-    private boolean sable$freezeTicking(final Level instance, final int x, final int z) {
+    @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/AbstractClientPlayer;tick()V"), cancellable = true)
+    private void sable$freezeTicking(final CallbackInfo ci) {
         this.sable$tickStopFreezing();
 
         final UUID uuid = this.sable$getFrozenToSubLevel();
@@ -33,13 +34,12 @@ public abstract class LocalPlayerMixin extends Player implements PlayerFreezeExt
             final ClientSubLevel subLevel = (ClientSubLevel) container.getSubLevel(uuid);
 
             if (subLevel == null || !subLevel.isFinalized()) {
-                return false;
+                ci.cancel();
+                return;
             }
 
             this.sable$teleport();
             this.sable$freezeTo(null, null);
         }
-
-        return instance.hasChunkAt(x, z);
     }
 }

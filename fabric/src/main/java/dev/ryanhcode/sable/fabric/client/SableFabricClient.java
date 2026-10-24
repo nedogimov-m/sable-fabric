@@ -2,20 +2,19 @@ package dev.ryanhcode.sable.fabric.client;
 
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.SableClient;
+import dev.ryanhcode.sable.render.sky_light_shadow.SableSkyLightShadows;
 import dev.ryanhcode.sable.SableClientConfig;
+import dev.ryanhcode.sable.SableConfig;
 import dev.ryanhcode.sable.physics.config.FloatingBlockMaterialDataHandler;
 import dev.ryanhcode.sable.sublevel.render.SubLevelRenderer;
-import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeConfigRegistry;
-import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeModConfigEvents;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
-import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
-import net.minecraft.resources.ResourceLocation;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.profiling.ProfilerFiller;
-import net.neoforged.fml.config.ModConfig;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
@@ -25,31 +24,28 @@ public final class SableFabricClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        SableClientConfig.SPEC.load(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("sable-client.toml"));
         SableClient.init();
+        SableClientConfig.onUpdate(false);
 
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            SableClient.WATER_OCCLUSION_RENDERER.close();
+            SableSkyLightShadows.reload();
+        });
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(Sable.sablePath("water_occlusion"),
+                (state, backgroundExecutor, barrier, gameExecutor) -> barrier.wait(null)
+                        .thenRunAsync(() -> { SableClient.WATER_OCCLUSION_RENDERER.reload(); SableSkyLightShadows.reload(); }, gameExecutor));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> FloatingBlockMaterialDataHandler.clearMaterials());
-        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new IdentifiableResourceReloadListener() {
-            @Override
-            public ResourceLocation getFabricId() {
-                return Sable.sablePath("sub_level_renderer");
-            }
+        ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(Sable.sablePath("sub_level_renderer"),
+                (state, backgroundExecutor, barrier, gameExecutor) ->
+                        SubLevelRenderer.getDispatcher().reload(state, backgroundExecutor, barrier, gameExecutor));
 
-            @Override
-            public @NotNull CompletableFuture<Void> reload(final PreparationBarrier preparationBarrier, final ResourceManager resourceManager, final ProfilerFiller profilerFiller, final ProfilerFiller profilerFiller2, final Executor executor, final Executor executor2) {
-                return SubLevelRenderer.getDispatcher().reload(preparationBarrier, resourceManager, profilerFiller, profilerFiller2, executor, executor2);
-            }
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (++this.configPollTicks % 20 != 0) return;
+            SableConfig.SPEC.reloadIfChanged();
+            if (SableClientConfig.SPEC.reloadIfChanged()) SableClientConfig.onUpdate(true);
         });
-
-        NeoForgeModConfigEvents.loading(Sable.MOD_ID).register(config -> {
-            if (config.getSpec().equals(SableClientConfig.SPEC))
-                SableClientConfig.onUpdate(false);
-        });
-
-        NeoForgeModConfigEvents.reloading(Sable.MOD_ID).register(config -> {
-            if (config.getSpec().equals(SableClientConfig.SPEC))
-                SableClientConfig.onUpdate(true);
-        });
-
-        NeoForgeConfigRegistry.INSTANCE.register(Sable.MOD_ID, ModConfig.Type.CLIENT, SableClientConfig.SPEC);
     }
+
+    private int configPollTicks;
 }

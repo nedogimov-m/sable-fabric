@@ -21,7 +21,7 @@ public class SublevelRenderOffsetHelper {
      */
     public static void posePlotToProjected(final SubLevel subLevel, final PoseStack ps) {
         if (subLevel != null) {
-            final Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+            final Vec3 camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
 
             final Pose3dc pose = ((ClientSubLevel) subLevel).renderPose();
 
@@ -30,7 +30,7 @@ public class SublevelRenderOffsetHelper {
             final Quaterniondc orientation = pose.orientation();
 
             ps.translate(pos.x() - camera.x, pos.y() - camera.y, pos.z() - camera.z);
-            ps.mulPose(new Quaternionf(orientation));
+            ps.rotate(new Quaternionf(orientation));
             ps.translate(camera.x, camera.y, camera.z);
             ps.scale((float) scale.x(), (float) scale.y(), (float) scale.z());
         }

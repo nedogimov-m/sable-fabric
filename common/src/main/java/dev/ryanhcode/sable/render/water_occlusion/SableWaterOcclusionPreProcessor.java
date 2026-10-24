@@ -1,6 +1,7 @@
 package dev.ryanhcode.sable.render.water_occlusion;
 
 import foundry.veil.api.client.render.shader.processor.ShaderPreProcessor;
+import dev.ryanhcode.sable.render.SableNativeWorldShaders;
 import io.github.ocelot.glslprocessor.api.GlslInjectionPoint;
 import io.github.ocelot.glslprocessor.api.GlslParser;
 import io.github.ocelot.glslprocessor.api.GlslSyntaxException;
@@ -14,10 +15,6 @@ public class SableWaterOcclusionPreProcessor implements ShaderPreProcessor {
 
     @Override
     public void modify(final Context ctx, final GlslTree tree) throws GlslSyntaxException {
-        if (!WaterOcclusionRenderer.isEnabled()) {
-            return;
-        }
-
         if (!ctx.isSourceFile()) {
             return;
         }
@@ -26,24 +23,29 @@ public class SableWaterOcclusionPreProcessor implements ShaderPreProcessor {
             return;
         }
 
-        if (!ctx.isFragment() || !minecraftContext.shaderInstance().equals("rendertype_translucent")) {
+        if (!ctx.isFragment() || !SableNativeWorldShaders.isTerrainSource(ctx.name())
+                || !SableNativeWorldShaders.isWaterPipeline(minecraftContext.pipeline())) {
             return;
         }
 
         final GlslNodeList mainFunctionBody = tree.mainFunction().orElseThrow().getBody();
         assert mainFunctionBody != null;
 
-        tree.getBody().add(GlslInjectionPoint.BEFORE_MAIN, GlslParser.parseExpression("uniform vec2 %s;".formatted("ScreenSize")));
+        tree.getBody().add(GlslInjectionPoint.BEFORE_MAIN, GlslParser.parseExpression("""
+                layout(std140) uniform SableWaterOcclusion {
+                    vec2 SableScreenSize;
+                    float SableWaterOcclusionEnabled;
+                };
+                """));
         tree.getBody().add(GlslInjectionPoint.BEFORE_MAIN, GlslParser.parseExpression("uniform sampler2D %s;".formatted(CLOSE_SAMPLER_NAME)));
         tree.getBody().add(GlslInjectionPoint.BEFORE_MAIN, GlslParser.parseExpression("uniform sampler2D %s;".formatted(FAR_SAMPLER_NAME)));
-        tree.getBody().add(GlslInjectionPoint.BEFORE_MAIN, GlslParser.parseExpression("uniform float %s;".formatted(ENABLE_UNIFORM)));
 
-        mainFunctionBody.add(1, GlslParser.parseExpression("""
+        mainFunctionBody.add(0, GlslParser.parseExpression("""
                 if(%s > 0.0) {
-                    float closeDepth = texture(%s, gl_FragCoord.xy / ScreenSize).r;
-                    float farDepth = texture(%s, gl_FragCoord.xy / ScreenSize).r;
+                    float closeDepth = texture(%s, gl_FragCoord.xy / SableScreenSize).r;
+                    float farDepth = texture(%s, gl_FragCoord.xy / SableScreenSize).r;
                     float waterDepth = gl_FragCoord.z;
-                    if (waterDepth > closeDepth && waterDepth < farDepth) { discard; }
+                    if (waterDepth < closeDepth && waterDepth > farDepth) { discard; }
                 }
                 """.formatted(ENABLE_UNIFORM, CLOSE_SAMPLER_NAME, FAR_SAMPLER_NAME).trim()));
     }

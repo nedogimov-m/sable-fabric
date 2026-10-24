@@ -3,13 +3,15 @@ package dev.ryanhcode.sable.sublevel.render.vanilla;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.world.level.ColorResolver;
+import net.minecraft.world.level.CardinalLighting;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.lighting.LevelLightEngine;
+import net.minecraft.world.level.lighting.LightEngine;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluids;
 import org.jetbrains.annotations.NotNull;
@@ -39,8 +41,8 @@ public final class SingleBlockSubLevelWrapper implements BlockAndTintGetter {
     }
 
     @Override
-    public float getShade(final Direction direction, final boolean bl) {
-        return this.level.getShade(direction, bl);
+    public CardinalLighting cardinalLighting() {
+        return this.level.cardinalLighting();
     }
 
     @Override
@@ -60,7 +62,7 @@ public final class SingleBlockSubLevelWrapper implements BlockAndTintGetter {
 
     @Override
     public boolean canSeeSky(final BlockPos pos) {
-        return this.getBrightness(LightLayer.SKY, this.globalPos) >= this.getMaxLightLevel();
+        return this.getBrightness(LightLayer.SKY, this.globalPos) >= LightEngine.MAX_LEVEL;
     }
 
     @Override
@@ -97,8 +99,8 @@ public final class SingleBlockSubLevelWrapper implements BlockAndTintGetter {
     }
 
     @Override
-    public int getMinBuildHeight() {
-        return this.level.getMinBuildHeight();
+    public int getMinY() {
+        return this.level.getMinY();
     }
 
     public ClientLevel getLevel() {

@@ -77,7 +77,7 @@ public abstract class PathNavigationMixin {
                 final Vec3 localMobPosition = pose.transformPositionInverse(this.mob.position());
                 final BlockPos localMobBlockPosition = BlockPos.containing(localMobPosition);
 
-                this.level.getProfiler().push("pathfind_sub_level");
+                net.minecraft.util.profiling.Profiler.get().push("pathfind_sub_level");
 
                 // turn global set to local
                 final Set<BlockPos> localSet = new ObjectOpenHashSet<>();
@@ -87,7 +87,7 @@ public abstract class PathNavigationMixin {
                         localSet.add(globalPos);
                         continue;
                     }
-                    final Vec3 globalPosVec = globalPos.getCenter();
+                    final Vec3 globalPosVec = Vec3.atCenterOf(globalPos);
                     final Vec3 localPosVec = pose.transformPositionInverse(globalPosVec);
                     localSet.add(BlockPos.containing(localPosVec));
                 }
@@ -96,12 +96,12 @@ public abstract class PathNavigationMixin {
                 final int k = (int) (f + (float) i);
                 final PathNavigationRegion pathNavigationRegion = new PathNavigationRegion(this.level, blockPos.offset(-k, -k, -k), blockPos.offset(k, k, k));
                 final Path path = this.pathFinder.findPath(pathNavigationRegion, this.mob, localSet, f, j, this.maxVisitedNodesMultiplier);
-                this.level.getProfiler().pop();
+                net.minecraft.util.profiling.Profiler.get().pop();
                 if (path != null && path.getTarget() != null) {
                     this.targetPos = path.getTarget();
                     this.reachRange = j;
                     this.resetStuckTimeout();
-                    ((PathExtension) path).sable$setLocalPath(this.level, true);
+                    ((PathExtension) (Object) path).sable$setLocalPath(this.level, true);
                 }
 
 

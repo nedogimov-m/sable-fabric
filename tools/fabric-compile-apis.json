@@ -1,0 +1,33 @@
+{
+  "minecraftMappings": {
+    "url": "https://piston-data.mojang.com/v1/objects/2244b6f072256667bcd9a73df124d6c58de77992/client.txt",
+    "sha1": "2244b6f072256667bcd9a73df124d6c58de77992"
+  },
+  "intermediary": {
+    "url": "https://maven.fabricmc.net/net/fabricmc/intermediary/1.21.1/intermediary-1.21.1-v2.jar",
+    "sha256": "e8bd6a4c39e235ee2dc73063558610775c72a2572fa0c6b32915b149074012a6"
+  },
+  "artifacts": {
+    "computercraft": {
+      "url": "https://maven.squiddev.cc/cc/tweaked/cc-tweaked-1.21.1-fabric/1.116.1/cc-tweaked-1.21.1-fabric-1.116.1.jar",
+      "sha256": "94b76098c11bdd8819852a5093243a67a4ae79b2fb04ae56eee0e199266ae372",
+      "loader": "fabric",
+      "minecraft": "1.21.1",
+      "role": "genuine compile-only API reference; not a runtime compatibility guarantee"
+    },
+    "exposure": {
+      "url": "https://raw.githubusercontent.com/mortuusars/resources/main/maven/io/github/mortuusars/exposure/exposure-1.21.1-fabric/1.9.11/exposure-1.21.1-fabric-1.9.11.jar",
+      "sha256": "313159f5acd8de36bd79e53f39c7e8d0bb0919f4d5b809b094a46345e1136038",
+      "loader": "fabric",
+      "minecraft": "1.21.1",
+      "role": "genuine compile-only API reference; not a runtime compatibility guarantee"
+    },
+    "shouldersurfing": {
+      "url": "https://api.modrinth.com/maven/maven/modrinth/shoulder-surfing-reloaded/1.21.1-4.22.10+fabric/shoulder-surfing-reloaded-1.21.1-4.22.10+fabric.jar",
+      "sha256": "cfffd89343d89a887666803e4ed1fa6acbad5dbcce35a1e1945472826a1484fd",
+      "loader": "fabric",
+      "minecraft": "1.21.1",
+      "role": "compile-only genuine API, not bundled"
+    }
+  }
+}

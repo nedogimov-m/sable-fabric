@@ -8,6 +8,8 @@ import net.minecraft.CrashReportCategory;
 import net.minecraft.ReportedException;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.InsideBlockEffectApplier;
+import java.util.List;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -30,10 +32,15 @@ public abstract class EntityMixin {
     private Level level;
 
     @Shadow
+    public abstract boolean isAffectedByBlocks();
+
+    @Shadow
     protected abstract void onInsideBlock(BlockState blockState);
 
-    @Inject(method = "checkInsideBlocks", at = @At("TAIL"))
-    protected void checkInsideBlocks(final CallbackInfo ci) {
+    @Inject(method = "checkInsideBlocks(Ljava/util/List;Lnet/minecraft/world/entity/InsideBlockEffectApplier$StepBasedCollector;)V", at = @At("TAIL"))
+    protected void checkInsideBlocks(final List<?> movements, final InsideBlockEffectApplier.StepBasedCollector effects, final CallbackInfo ci) {
+        if (!this.isAffectedByBlocks()) return;
+        effects.advanceStep(Integer.MAX_VALUE);
         final AABB bounds = this.getBoundingBox();
 
         final BoundingBox3d localBounds = new BoundingBox3d(bounds);
@@ -57,7 +64,7 @@ public abstract class EntityMixin {
                             final BlockState blockState = this.level.getBlockState(mutableBlockPos);
 
                             try {
-                                blockState.entityInside(this.level, mutableBlockPos, (Entity) (Object) this);
+                                blockState.entityInside(this.level, mutableBlockPos, (Entity) (Object) this, effects, true);
                                 this.onInsideBlock(blockState);
                             } catch (final Throwable var12) {
                                 final CrashReport crashReport = CrashReport.forThrowable(var12, "Colliding entity with block");

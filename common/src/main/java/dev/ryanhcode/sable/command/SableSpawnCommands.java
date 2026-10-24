@@ -35,7 +35,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -159,7 +159,7 @@ public class SableSpawnCommands {
                 position.set(pos.x, pos.y, pos.z);
 
                 if (index != 0) {
-                    position.add(JOMLConversion.atLowerCornerOf(Direction.get(index == 1 ? Direction.AxisDirection.POSITIVE : Direction.AxisDirection.NEGATIVE, axis).getNormal()));
+                    position.add(JOMLConversion.atLowerCornerOf(Direction.get(index == 1 ? Direction.AxisDirection.POSITIVE : Direction.AxisDirection.NEGATIVE, axis).getUnitVec3i()));
                 }
                 position.add(0.0, yOffset, 0.0);
                 final Vector3d positionBackup = new Vector3d(position);
@@ -243,7 +243,7 @@ public class SableSpawnCommands {
         final int radiusChunks = (radius + 8) / 16;
         for (int x = -radiusChunks; x <= radiusChunks; x++) {
             for (int z = -radiusChunks; z <= radiusChunks; z++) {
-                plot.newEmptyChunk(new ChunkPos(center.x + x, center.z + z));
+                plot.newEmptyChunk(new ChunkPos(center.x() + x, center.z() + z));
             }
         }
 
@@ -268,7 +268,7 @@ public class SableSpawnCommands {
         final CommandSourceStack source = ctx.getSource();
         final ServerLevel level = source.getLevel();
 
-        final StructureTemplate template = SchematicLoader.loadSchematic(level, ResourceLocation.fromNamespaceAndPath("sable", StringArgumentType.getString(ctx, "name")));
+        final StructureTemplate template = SchematicLoader.loadSchematic(level, Identifier.fromNamespaceAndPath("sable", StringArgumentType.getString(ctx, "name")));
 
         if (template == null) {
             source.sendFailure(Component.translatable("commands.sable.place_schematic.failure"));
@@ -297,7 +297,7 @@ public class SableSpawnCommands {
 
         for (int x = minChunkX; x <= maxChunkX; x++) {
             for (int z = minChunkZ; z <= maxChunkZ; z++) {
-                plot.newEmptyChunk(new ChunkPos(center.x + x, center.z + z));
+                plot.newEmptyChunk(new ChunkPos(center.x() + x, center.z() + z));
             }
         }
 
@@ -360,8 +360,8 @@ public class SableSpawnCommands {
         final RotaryConstraintConfiguration config = new RotaryConstraintConfiguration(
                 JOMLConversion.atBottomCenterOf(plotA.getCenterBlock().above().above()),
                 JOMLConversion.atBottomCenterOf(plotB.getCenterBlock()),
-                JOMLConversion.atLowerCornerOf(Direction.UP.getNormal()),
-                JOMLConversion.atLowerCornerOf(Direction.UP.getNormal())
+                JOMLConversion.atLowerCornerOf(Direction.UP.getUnitVec3i()),
+                JOMLConversion.atLowerCornerOf(Direction.UP.getUnitVec3i())
         );
 //        final FreeConstraintConfiguration config = new FreeConstraintConfiguration();
 
@@ -501,7 +501,7 @@ public class SableSpawnCommands {
         final int radiusChunks = (size + 8) / 16;
         for (int x = -radiusChunks; x <= radiusChunks; x++) {
             for (int z = -radiusChunks; z <= radiusChunks; z++) {
-                plot.newEmptyChunk(new ChunkPos(center.x + x, center.z + z));
+                plot.newEmptyChunk(new ChunkPos(center.x() + x, center.z() + z));
             }
         }
         for (int x = -size; x <= size; x++) {

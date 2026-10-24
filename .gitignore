@@ -138,3 +138,18 @@ runs/
 macos/*.dmg
 
 **/.intentionally-empty-file.o
+
+# Local reports, runtime state and generated compile-only API artifacts
+/dist
+/diagnostics/
+/port-tests/.gradle/
+.upstream-cache/
+
+# Platform native libraries shipped as runtime resources
+!sable_rapier/src/main/resources/natives/**/*.zip
+
+# Local porting evidence is retained in the original workspace
+/*-evidence.json
+/native-*.json
+/NATIVE_*.md
+/PORTING_*.md

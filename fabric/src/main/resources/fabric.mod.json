@@ -8,8 +8,8 @@
     "${mod_author}"
   ],
   "contact": {
-    "sources": "https://github.com/ryanhcode/sable-companion",
-    "issues": "${issues}"
+    "sources": "https://github.com/nedogimov-m/sable-fabric",
+    "issues": "https://github.com/nedogimov-m/sable-fabric/issues"
   },
   "accessWidener": "sable.accesswidener",
   "license": "${license}",
@@ -32,10 +32,8 @@
     "minecraft": "${minecraft_version}",
     "java": ">=${java_version}",
     "veil": ">=${veil_version}",
-    "fabric-command-api-v2": ">=${fabric_version}",
-    "fabric-lifecycle-events-v1": ">=${fabric_version}",
-    "fabric-resource-loader-v0": ">=${fabric_version}",
-    "fabric-convention-tags-v2": ">=${fabric_version}"
+    "fabric-api": ">=${fabric_version}",
+    "sablecompanion": ">=${sable_companion_version}"
   },
   "custom": {
     "lithium:options": {

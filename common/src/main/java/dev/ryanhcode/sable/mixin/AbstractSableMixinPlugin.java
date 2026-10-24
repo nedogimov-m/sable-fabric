@@ -50,7 +50,6 @@ public abstract class AbstractSableMixinPlugin implements IMixinConfigPlugin {
         }
 
         if (mixinClassName.startsWith("dev.ryanhcode.sable.mixin.compatibility.") ||
-                mixinClassName.startsWith("dev.ryanhcode.sable.neoforge.mixin.compatibility.") ||
                 mixinClassName.startsWith("dev.ryanhcode.sable.fabric.mixin.compatibility.")
         ) {
             final String[] parts = mixinClassName.split("\\.");

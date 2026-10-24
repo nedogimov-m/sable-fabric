@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(EntityRenderer.class)
 public class EntityRendererMixin {
 
-    @Redirect(method = "renderLeash", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getRopeHoldPosition(F)Lnet/minecraft/world/phys/Vec3;"))
+    @Redirect(method = "extractRenderState", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getRopeHoldPosition(F)Lnet/minecraft/world/phys/Vec3;"))
     private Vec3 sable$getRopeHoldPosition(final Entity instance, final float f, @Local(argsOnly = true, ordinal = 0) final Entity leashedEntity){
         final ActiveSableCompanion helper = Sable.HELPER;
         final SubLevel leashedSubLevel = helper.getContaining(leashedEntity);
@@ -35,7 +35,7 @@ public class EntityRendererMixin {
         return JOMLConversion.toMojang(ropeHoldPosition);
     }
 
-    @Redirect(method = "renderLeash", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getEyePosition(F)Lnet/minecraft/world/phys/Vec3;"))
+    @Redirect(method = "extractRenderState", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getEyePosition(F)Lnet/minecraft/world/phys/Vec3;"))
     private Vec3 sable$getEyePosition(final Entity instance, final float f, @Local(argsOnly = true, ordinal = 0) final Entity leashedEntity){
         final ActiveSableCompanion helper = Sable.HELPER;
         final SubLevel leashedSubLevel = helper.getContaining(leashedEntity);

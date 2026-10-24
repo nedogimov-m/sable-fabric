@@ -8,8 +8,8 @@ import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
-import net.minecraft.world.entity.projectile.AbstractArrow;
-import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.hurtingprojectile.AbstractHurtingProjectile;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaterniondc;
@@ -71,7 +71,7 @@ public class EntitySubLevelUtil {
             anchor = new Vec3(0.0, entity.getBbHeight() / 2.0, 0.0);
         }
 
-        entity.moveTo(subLevel.logicalPose().transformPosition(pos.add(anchor)).subtract(anchor));
+        entity.snapTo(subLevel.logicalPose().transformPosition(pos.add(anchor)).subtract(anchor));
         entity.setDeltaMovement(subLevel.logicalPose().transformNormal(entity.getDeltaMovement()).add(subLevelGainedVelo.x, subLevelGainedVelo.y, subLevelGainedVelo.z));
         entity.lookAt(EntityAnchorArgument.Anchor.FEET, subLevel.logicalPose().transformNormal(entity.getLookAngle()).add(entity.position()));
 
@@ -85,7 +85,7 @@ public class EntitySubLevelUtil {
     }
 
     public static boolean shouldKick(final Entity entity) {
-        return !entity.getType().is(SableTags.RETAIN_IN_SUB_LEVEL);
+        return !entity.getType().builtInRegistryHolder().is(SableTags.RETAIN_IN_SUB_LEVEL);
     }
 
     @Nullable

@@ -9,7 +9,7 @@ import dev.ryanhcode.sable.companion.math.JOMLConversion;
 import dev.ryanhcode.sable.network.packets.tcp.ClientboundDimensionPhysicsPacket;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -110,23 +110,23 @@ public class DimensionPhysicsData {
         return new ClientboundDimensionPhysicsPacket(DIMENSION_PHYSICS_DATA.values().stream().toList());
     }
 
-    public static class ReloadListener extends SimpleJsonResourceReloadListener {
+    public static class ReloadListener extends SimpleJsonResourceReloadListener<JsonElement> {
 
         private static final Gson GSON = new Gson();
         public static final ReloadListener INSTANCE = new ReloadListener();
 
         public static final String NAME = "dimension_physics";
-        public static final ResourceLocation ID = Sable.sablePath(NAME);
+        public static final Identifier ID = Sable.sablePath(NAME);
 
         public ReloadListener() {
-            super(ReloadListener.GSON, NAME);
+            super(net.minecraft.util.ExtraCodecs.JSON, net.minecraft.resources.FileToIdConverter.json(NAME));
         }
 
         @Override
-        protected void apply(final Map<ResourceLocation, JsonElement> map, final ResourceManager resourceManager, final ProfilerFiller profiler) {
+        protected void apply(final Map<Identifier, JsonElement> map, final ResourceManager resourceManager, final ProfilerFiller profiler) {
             clearPhysics();
 
-            for (final Map.Entry<ResourceLocation, JsonElement> entry : map.entrySet()) {
+            for (final Map.Entry<Identifier, JsonElement> entry : map.entrySet()) {
                 try {
                     final DataResult<DimensionPhysics> dataResult = DimensionPhysics.CODEC.parse(JsonOps.INSTANCE, entry.getValue());
 

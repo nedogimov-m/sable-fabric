@@ -7,12 +7,14 @@ import dev.ryanhcode.sable.companion.math.JOMLConversion;
 import dev.ryanhcode.sable.companion.math.Pose3d;
 import dev.ryanhcode.sable.companion.math.Pose3dc;
 import dev.ryanhcode.sable.mixinterface.entity.entities_stick_sublevels.LivingEntityStickExtension;
+import dev.ryanhcode.sable.mixinhelpers.entity.entities_stick_sublevels.PlotPositionInterpolator;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PositionPath;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -31,23 +33,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class LivingEntityMixin extends Entity implements LivingEntityStickExtension {
 
 
-    @Shadow
-    protected int lerpSteps;
-    @Shadow
-    protected double lerpYRot;
-    @Shadow
-    protected double lerpXRot;
-
     @Shadow protected abstract void updateWalkAnimation(float f);
 
     @Unique
-    private Vec3 sable$lerpTarget = Vec3.ZERO;
-
-    @Unique
-    private int sable$sableLerpSteps;
-
-    @Unique
-    private int sable$sableRotLerpSteps;
+    private final PlotPositionInterpolator sable$plotInterpolator = new PlotPositionInterpolator();
 
     public LivingEntityMixin(final EntityType<?> entityType,
                              final Level level) {
@@ -55,57 +44,30 @@ public abstract class LivingEntityMixin extends Entity implements LivingEntitySt
     }
 
     @Override
-    public void sable$setupLerp() {
-        // Prevent vanilla lerp from happening
-        if (this.sable$getPlotPosition() != null && this.lerpSteps > 0) {
-            this.sable$sableRotLerpSteps = this.lerpSteps;
-            this.lerpSteps = 0;
-        }
-    }
-
-    @Override
     public void sable$applyLerp() {
         final Vec3 plotPos = this.sable$getPlotPosition();
         if (plotPos == null) {
-            this.sable$sableLerpSteps = 0;
-            this.sable$sableRotLerpSteps = 0;
+            this.sable$plotInterpolator.clear();
             return;
         }
 
-        if (this.sable$sableLerpSteps > 0) {
-            this.sable$setPlotPosition(plotPos.lerp(this.sable$lerpTarget, 1.0 / this.sable$sableLerpSteps));
-            --this.sable$sableLerpSteps;
-        }
-        if (this.sable$sableRotLerpSteps > 0) {
-            final double difference = Mth.wrapDegrees(this.lerpYRot - (double) this.getYRot());
-            this.setYRot(this.getYRot() + (float) difference / (float) this.sable$sableRotLerpSteps);
-            this.setXRot(this.getXRot() + (float) (this.lerpXRot - (double) this.getXRot()) / (float) this.sable$sableRotLerpSteps);
-            --this.sable$sableRotLerpSteps;
-            this.setRot(this.getYRot(), this.getXRot());
-        }
+        this.sable$setPlotPosition(this.sable$plotInterpolator.advance(plotPos, this.level().getRelativeTickSpeed()));
     }
 
 
     @Override
     public Vec3 sable$getLerpTarget() {
-        return this.sable$lerpTarget;
+        return this.sable$plotInterpolator.target();
     }
-
-    @Inject(method = "aiStep", at = @At("HEAD"))
-    private void sable$updateRotLerp(final CallbackInfo ci) {
-        this.sable$setupLerp();
-    }
-
-    @Inject(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setDeltaMovement(DDD)V", shift = At.Shift.BEFORE))
-    private void sable$updatePlotPosition(final CallbackInfo ci) {
-        this.sable$applyLerp();
-    }
-
 
     @Override
     public void sable$plotLerpTo(final Vec3 pos, final int lerpSteps) {
-        this.sable$lerpTarget = pos;
-        this.sable$sableLerpSteps = lerpSteps;
+        this.sable$plotInterpolator.setTarget(PositionPath.of(pos), lerpSteps);
+    }
+
+    @Override
+    public void sable$plotLerpTo(final PositionPath path, final int defaultTicks) {
+        this.sable$plotInterpolator.setTarget(path, defaultTicks);
     }
 
     @ModifyVariable(method = "tick", at = @At("STORE"), ordinal = 0)

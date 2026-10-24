@@ -1,7 +1,7 @@
 package dev.ryanhcode.sable.render.water_occlusion;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import dev.ryanhcode.sable.render.region.SimpleCulledRenderRegion;
 import dev.ryanhcode.sable.render.region.SimpleCulledRenderRegionBuilder;
 import net.minecraft.core.BlockPos;

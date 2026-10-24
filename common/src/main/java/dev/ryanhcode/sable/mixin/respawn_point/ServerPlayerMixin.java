@@ -1,6 +1,10 @@
 package dev.ryanhcode.sable.mixin.respawn_point;
 
 import dev.ryanhcode.sable.Sable;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.companion.math.JOMLConversion;
 import dev.ryanhcode.sable.mixinterface.player_freezing.PlayerFreezeExtension;
@@ -41,13 +45,9 @@ public abstract class ServerPlayerMixin implements ServerPlayerRespawnExtension 
     @Shadow
     public ServerGamePacketListenerImpl connection;
     @Shadow
-    private @Nullable BlockPos respawnPosition;
-    @Shadow
-    private ResourceKey<Level> respawnDimension;
-    @Shadow
-    private float respawnAngle;
-    @Shadow
-    private boolean respawnForced;
+    private @Nullable ServerPlayer.RespawnConfig respawnConfig;
+    @Unique
+    private boolean sable$copyingRespawnPoint;
     @Unique
     @Nullable
     private UUID sable$respawnPoint = null;
@@ -55,12 +55,13 @@ public abstract class ServerPlayerMixin implements ServerPlayerRespawnExtension 
     private Pair<UUID, Vector3d> sable$queuedFreeze = null;
 
     @Shadow
-    public static Optional<ServerPlayer.RespawnPosAngle> findRespawnAndUseSpawnBlock(final ServerLevel serverLevel, final BlockPos blockPos, final float f, final boolean bl, final boolean bl2) {
-        return null;
+    public static Optional<ServerPlayer.RespawnPosAngle> findRespawnAndUseSpawnBlock(
+            final ServerLevel level, final ServerPlayer.RespawnConfig config, final boolean consumeSpawnBlock) {
+        throw new AssertionError("Mixin shadow method was not transformed");
     }
 
     @Shadow
-    public abstract ServerLevel serverLevel();
+    public abstract ServerLevel level();
 
     @Shadow
     public abstract void sendSystemMessage(Component component);
@@ -70,71 +71,52 @@ public abstract class ServerPlayerMixin implements ServerPlayerRespawnExtension 
         return this.sable$respawnPoint;
     }
 
-    @Inject(method = "setRespawnPosition", at = @At("HEAD"), cancellable = true)
-    private void sable$setRespawnPosition(final ResourceKey<Level> resourceKey, @Nullable final BlockPos blockPos, final float f, final boolean bl, final boolean sendMessage, final CallbackInfo ci) {
-        final ServerLevel level = this.serverLevel();
-        final SubLevelTrackingPointSavedData data = SubLevelTrackingPointSavedData.getOrLoad(level);
-
+    @Inject(method = "setRespawnPosition", at = @At("HEAD"))
+    private void sable$setRespawnPosition(@Nullable final ServerPlayer.RespawnConfig config,
+                                          final boolean sendMessage, final CallbackInfo ci) {
+        if (this.sable$copyingRespawnPoint) return;
         if (this.sable$respawnPoint != null) {
-            data.removeTrackingPoint(this.sable$respawnPoint);
+            final ServerLevel oldLevel = this.respawnConfig == null ? this.level()
+                    : this.server.getLevel(this.respawnConfig.respawnData().dimension());
+            if (oldLevel != null) {
+                SubLevelTrackingPointSavedData.getOrLoad(oldLevel).removeTrackingPoint(this.sable$respawnPoint);
+            }
             this.sable$respawnPoint = null;
         }
-
-        if (blockPos != null) {
-            final SubLevel trackingSubLevel = Sable.HELPER.getContaining(level, blockPos);
-
-            if (trackingSubLevel instanceof final ServerSubLevel serverSubLevel) {
-                this.sable$respawnPoint = data.generateTrackingPoint(Vec3.atCenterOf(blockPos), serverSubLevel);
-
-                if (this.sable$respawnPoint != null) {
-                    final boolean theSame = blockPos.equals(this.respawnPosition) && resourceKey.equals(this.respawnDimension);
-                    if (sendMessage && !theSame) {
-                        this.sendSystemMessage(Component.translatable("block.minecraft.set_spawn"));
-                    }
-
-                    this.respawnPosition = blockPos;
-                    this.respawnDimension = resourceKey;
-                    this.respawnAngle = f;
-                    this.respawnForced = bl;
-                    ci.cancel();
-                }
-            }
+        if (config == null) return;
+        final ServerLevel level = this.server.getLevel(config.respawnData().dimension());
+        if (level == null) return;
+        final BlockPos position = config.respawnData().pos();
+        final SubLevel subLevel = Sable.HELPER.getContaining(level, position);
+        if (subLevel instanceof final ServerSubLevel serverSubLevel) {
+            this.sable$respawnPoint = SubLevelTrackingPointSavedData.getOrLoad(level)
+                    .generateTrackingPoint(Vec3.atCenterOf(position), serverSubLevel);
         }
+        // Vanilla stores RespawnConfig and sends the spawn-set message itself.
     }
 
     @Inject(method = "addAdditionalSaveData", at = @At("TAIL"))
-    private void sable$addRespawnPoint(final CompoundTag compoundTag, final CallbackInfo ci) {
+    private void sable$addRespawnPoint(final ValueOutput compoundTag, final CallbackInfo ci) {
         if (this.sable$respawnPoint != null) {
-            compoundTag.putUUID("RespawnPoint", this.sable$respawnPoint);
+            compoundTag.store("RespawnPoint", net.minecraft.core.UUIDUtil.CODEC, this.sable$respawnPoint);
         }
     }
 
     @Inject(method = "readAdditionalSaveData", at = @At("TAIL"))
-    private void sable$readRespawnPoint(final CompoundTag compoundTag, final CallbackInfo ci) {
-        if (compoundTag.hasUUID("RespawnPoint")) {
-            this.sable$respawnPoint = compoundTag.getUUID("RespawnPoint");
-        }
+    private void sable$readRespawnPoint(final ValueInput compoundTag, final CallbackInfo ci) {
+        this.sable$respawnPoint = compoundTag.read("RespawnPoint", net.minecraft.core.UUIDUtil.CODEC).orElse(null);
     }
 
-    /**
-     * @author RyanH
-     * @reason Respawning on sub-levels
-     */
-    @Overwrite
-    public void copyRespawnPosition(final ServerPlayer serverPlayer) {
-        if (serverPlayer.getRespawnPosition() != null) {
-            this.sable$respawnPoint = ((ServerPlayerRespawnExtension) serverPlayer).sable$getRespawnPoint();
-            this.respawnPosition = serverPlayer.getRespawnPosition();
-            this.respawnDimension = serverPlayer.getRespawnDimension();
-            this.respawnAngle = serverPlayer.getRespawnAngle();
-            this.respawnForced = serverPlayer.isRespawnForced();
-        } else {
-            this.sable$respawnPoint = null;
-            this.respawnPosition = null;
-            this.respawnDimension = Level.OVERWORLD;
-            this.respawnAngle = 0.0F;
-            this.respawnForced = false;
+    @WrapMethod(method = "copyRespawnPosition")
+    private void sable$copyRespawnPosition(final ServerPlayer oldPlayer, final Operation<Void> original) {
+        this.sable$copyingRespawnPoint = true;
+        try {
+            original.call(oldPlayer);
+        } finally {
+            this.sable$copyingRespawnPoint = false;
         }
+        this.sable$respawnPoint = oldPlayer.getRespawnConfig() == null ? null
+                : ((ServerPlayerRespawnExtension) oldPlayer).sable$getRespawnPoint();
     }
 
     @Override
@@ -157,8 +139,10 @@ public abstract class ServerPlayerMixin implements ServerPlayerRespawnExtension 
      * @author RyanH
      * @reason Respawning on sub-levels
      */
-    @Redirect(method = "findRespawnPositionAndUseSpawnBlock", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayer;findRespawnAndUseSpawnBlock(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;FZZ)Ljava/util/Optional;"))
-    private Optional<ServerPlayer.RespawnPosAngle> sable$findRespawnPosition(final ServerLevel level, final BlockPos blockPos, final float f1, final boolean b1, final boolean b2) {
+    @Redirect(method = "findRespawnPositionAndUseSpawnBlock", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayer;findRespawnAndUseSpawnBlock(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/server/level/ServerPlayer$RespawnConfig;Z)Ljava/util/Optional;"))
+    private Optional<ServerPlayer.RespawnPosAngle> sable$findRespawnPosition(final ServerLevel level,
+            final ServerPlayer.RespawnConfig config, final boolean consumeSpawnBlock) {
+        this.sable$queuedFreeze = null;
         final SubLevelTrackingPointSavedData data = SubLevelTrackingPointSavedData.getOrLoad(level);
 
         if (this.sable$respawnPoint != null) {
@@ -175,9 +159,10 @@ public abstract class ServerPlayerMixin implements ServerPlayerRespawnExtension 
                 this.sable$queuedFreeze = Pair.of(point.subLevelId(), point.localAnchor());
             }
 
-            return Optional.of(new ServerPlayer.RespawnPosAngle(JOMLConversion.toMojang(point.position()), f1));
+            return Optional.of(new ServerPlayer.RespawnPosAngle(JOMLConversion.toMojang(point.position()),
+                    config.respawnData().yaw(), config.respawnData().pitch()));
         }
 
-        return findRespawnAndUseSpawnBlock(level, blockPos, f1, b1, b2);
+        return findRespawnAndUseSpawnBlock(level, config, consumeSpawnBlock);
     }
 }

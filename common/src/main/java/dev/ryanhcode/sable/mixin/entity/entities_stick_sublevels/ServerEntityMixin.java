@@ -12,6 +12,7 @@ import dev.ryanhcode.sable.mixinterface.entity.entity_sublevel_collision.EntityM
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.server.level.ServerEntity;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Final;
@@ -22,7 +23,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.function.Consumer;
 
 /**
  * If an entity is currently tracking / standing on a {@link SubLevel}, network the position local to that data
@@ -68,8 +68,8 @@ public class ServerEntityMixin {
         }
     }
 
-    @WrapOperation(method = "sendChanges", at = @At(value = "INVOKE", target = "Ljava/util/function/Consumer;accept(Ljava/lang/Object;)V"))
-    private void sable$sendChanges(final Consumer<?> instance, final Object t, final Operation<Void> original, @Share("actuallyInSubLevel") final LocalBooleanRef actuallyInSubLevel) {
+    @WrapOperation(method = "sendChanges", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerEntity$Synchronizer;sendToTrackingPlayers(Lnet/minecraft/network/protocol/Packet;)V"))
+    private void sable$sendChanges(final ServerEntity.Synchronizer instance, final Packet<?> t, final Operation<Void> original, @Share("actuallyInSubLevel") final LocalBooleanRef actuallyInSubLevel) {
         if (actuallyInSubLevel.get() && t instanceof final PacketActuallyInSubLevelExtension extension) {
             extension.sable$setActuallyInSubLevel(true);
         }

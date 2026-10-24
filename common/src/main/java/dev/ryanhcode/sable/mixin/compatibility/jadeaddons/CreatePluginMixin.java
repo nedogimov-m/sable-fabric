@@ -9,9 +9,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import snownee.jade.addon.create.CreatePlugin;
+import org.spongepowered.asm.mixin.Pseudo;
 
-@Mixin(CreatePlugin.class)
+@Pseudo
+@Mixin(targets = "snownee.jade.addon.create.CreatePlugin")
 public class CreatePluginMixin {
 
 	@WrapOperation(method = "lambda$registerClient$1", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getEyePosition(F)Lnet/minecraft/world/phys/Vec3;"))

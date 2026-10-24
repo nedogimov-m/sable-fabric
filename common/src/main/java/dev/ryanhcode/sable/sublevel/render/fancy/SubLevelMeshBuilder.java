@@ -9,20 +9,24 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.*;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.block.BlockStateModelSet;
 import net.minecraft.client.renderer.block.ModelBlockRenderer;
-import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.chunk.RenderChunkRegion;
+import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.VisGraph;
 import net.minecraft.client.renderer.chunk.VisibilitySet;
-import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.client.renderer.block.BlockModelLighter;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -39,12 +43,12 @@ public class SubLevelMeshBuilder {
 
     private static final Direction[] DIRECTIONS = Direction.values();
 
-    private final BlockRenderDispatcher blockRenderer;
+    private final BlockStateModelSet blockRenderer;
     private final BlockEntityRenderDispatcher blockEntityRenderer;
     private final SubLevelTextureCache textureCache;
 
     public SubLevelMeshBuilder(
-            final BlockRenderDispatcher blockRenderDispatcher,
+            final BlockStateModelSet blockRenderDispatcher,
             final BlockEntityRenderDispatcher blockEntityRenderDispatcher,
             final SubLevelTextureCache textureCache) {
         this.blockRenderer = blockRenderDispatcher;
@@ -52,14 +56,14 @@ public class SubLevelMeshBuilder {
         this.textureCache = textureCache;
     }
 
-    public Results compile(final Vector3ic origin, final SectionPos sectionPos, final RenderChunkRegion renderChunkRegion, final SectionBufferBuilderPack sectionBufferBuilderPack) {
+    public Results compile(final Vector3ic origin, final SectionPos sectionPos, final RenderSectionRegion renderChunkRegion, final SectionBufferBuilderPack sectionBufferBuilderPack) {
         final Results results = new Results();
         final BlockPos min = sectionPos.origin();
         final BlockPos max = min.offset(15, 15, 15);
         final VisGraph visGraph = new VisGraph();
         final PoseStack poseStack = new PoseStack();
-        ModelBlockRenderer.enableCaching();
-        final Map<RenderType, QuadMesh> faceMeshes = new Reference2ObjectArrayMap<>(RenderType.chunkBufferLayers().size());
+        BlockModelLighter.enableCaching();
+        final Map<ChunkSectionLayer, QuadMesh> faceMeshes = new Reference2ObjectArrayMap<>(ChunkSectionLayer.values().length);
         final RandomSource randomSource = RandomSource.create();
         final BlockPos.MutableBlockPos offsetPos = new BlockPos.MutableBlockPos();
         final BlockPos.MutableBlockPos rightPos = new BlockPos.MutableBlockPos();
@@ -69,7 +73,7 @@ public class SubLevelMeshBuilder {
 
         for (final BlockPos pos : BlockPos.betweenClosed(min, max)) {
             final BlockState blockState = renderChunkRegion.getBlockState(pos);
-            if (blockState.isSolidRender(renderChunkRegion, pos)) {
+            if (blockState.isSolidRender()) {
                 visGraph.setOpaque(pos);
             }
 
@@ -83,26 +87,27 @@ public class SubLevelMeshBuilder {
             // TODO
 //            final FluidState fluidState = blockState.getFluidState();
 //            if (!fluidState.isEmpty()) {
-//                final RenderType renderType = ItemBlockRenderTypes.getRenderLayer(fluidState);
+//                final ChunkSectionLayer renderType = ItemBlockChunkSectionLayers.getRenderLayer(fluidState);
 //                final BufferBuilder bufferBuilder = this.getOrBeginLayer(map, sectionBufferBuilderPack, renderType);
 //                this.blockRenderer.renderLiquid(blockPos3, renderChunkRegion, bufferBuilder, blockState, fluidState);
 //            }
 
             if (blockState.getRenderShape() == RenderShape.MODEL) {
-                final RenderType renderType = ItemBlockRenderTypes.getChunkRenderType(blockState);
 
-                final BakedModel model = this.blockRenderer.getBlockModel(blockState);
+                final BlockStateModel model = this.blockRenderer.get(blockState);
                 final long seed = blockState.getSeed(pos);
 
                 randomSource.setSeed(seed);
-                final List<BakedQuad> unculledQuads = model.getQuads(blockState, null, randomSource);
+                final List<BlockStateModelPart> parts = new ArrayList<>();
+                model.collectParts(randomSource, parts);
+                final List<BakedQuad> unculledQuads = parts.stream().flatMap(part -> part.getQuads(null).stream()).toList();
                 if (unculledQuads.isEmpty()) {
                     final BakedQuad[] quads = new BakedQuad[6];
                     boolean valid = true;
 
                     for (final Direction direction : DIRECTIONS) {
                         randomSource.setSeed(seed);
-                        final List<BakedQuad> culledQuads = model.getQuads(blockState, direction, randomSource);
+                        final List<BakedQuad> culledQuads = parts.stream().flatMap(part -> part.getQuads(direction).stream()).toList();
                         if (culledQuads.size() != 1) {
                             valid = false;
                             break;
@@ -118,7 +123,6 @@ public class SubLevelMeshBuilder {
                     }
 
                     if (valid) {
-                        final QuadMesh mesh = faceMeshes.computeIfAbsent(renderType, unused -> new QuadMesh());
 
                         final int posX = pos.getX() & 15;
                         final int posY = pos.getY() & 15;
@@ -126,10 +130,12 @@ public class SubLevelMeshBuilder {
 
                         for (final Direction direction : DIRECTIONS) {
                             offsetPos.setWithOffset(pos, direction);
-                            if (Block.shouldRenderFace(blockState, renderChunkRegion, pos, direction, offsetPos)) {
-                                final int packedLight = LevelRenderer.getLightColor(renderChunkRegion, blockState, offsetPos);
-                                final int blockLight = LightTexture.block(packedLight);
-                                final int skyLight = LightTexture.sky(packedLight);
+                            if (Block.shouldRenderFace(blockState, renderChunkRegion.getBlockState(offsetPos), direction)) {
+                                final QuadMesh mesh = faceMeshes.computeIfAbsent(quads[direction.get3DDataValue()].materialInfo().layer(), unused -> new QuadMesh());
+                                final int packedLight = blockState.emissiveRendering() ? LightCoordsUtil.FULL_BRIGHT
+                                        : LightCoordsUtil.lightCoordsWithEmission(LightCoordsUtil.getLightCoords(renderChunkRegion, offsetPos), blockState.getLightEmission());
+                                final int blockLight = LightCoordsUtil.block(packedLight);
+                                final int skyLight = LightCoordsUtil.sky(packedLight);
                                 final int textureId = this.textureCache.getTextureId(quads[direction.get3DDataValue()]);
                                 final int packedData = posX | posY << 4 | posZ << 8 | skyLight << 12 | blockLight << 16 | textureId << 20;
                                 final IntList face = mesh.faces[direction.get3DDataValue()];
@@ -152,13 +158,13 @@ public class SubLevelMeshBuilder {
 
         results.renderedQuadLayers.putAll(faceMeshes);
 
-        ModelBlockRenderer.clearCache();
+        BlockModelLighter.clearCache();
         results.visibilitySet = visGraph.resolve();
         return results;
     }
 
     private static int getFaceAO(final BlockAndTintGetter level, final BlockPos pos, final Direction direction, final BlockPos.MutableBlockPos offset, final BlockPos.MutableBlockPos right, final BlockPos.MutableBlockPos up, final BlockPos.MutableBlockPos forward) {
-        if (!Minecraft.useAmbientOcclusion()) {
+        if (!Minecraft.getInstance().options.ambientOcclusion().get()) {
             return 0;
         }
 
@@ -223,11 +229,9 @@ public class SubLevelMeshBuilder {
     }
 
     private static boolean isAxisAligned(final BakedQuad quad) {
-        final int[] vertices = quad.getVertices();
-        for (int i = 0; i < vertices.length / 8; i++) {
-            final float x = Float.intBitsToFloat(vertices[i * 8]);
-            final float y = Float.intBitsToFloat(vertices[i * 8 + 1]);
-            final float z = Float.intBitsToFloat(vertices[i * 8 + 2]);
+        for (int i = 0; i < 4; i++) {
+            final var vertex = quad.position(i);
+            final float x = vertex.x(), y = vertex.y(), z = vertex.z();
             if (Math.abs(x - Math.round(x)) > 1e-2 || Math.abs(y - Math.round(y)) > 1e-2 || Math.abs(z - Math.round(z)) > 1e-2) {
                 return false;
             }
@@ -235,7 +239,7 @@ public class SubLevelMeshBuilder {
         return true;
     }
 
-    private ByteBufferBuilder getOrBeginQuadLayer(final Map<RenderType, ByteBufferBuilder> map, final SectionBufferBuilderPack pack, final RenderType renderType) {
+    private ByteBufferBuilder getOrBeginQuadLayer(final Map<ChunkSectionLayer, ByteBufferBuilder> map, final SectionBufferBuilderPack pack, final ChunkSectionLayer renderType) {
         ByteBufferBuilder bufferBuilder = map.get(renderType);
         if (bufferBuilder == null) {
             bufferBuilder = pack.buffer(renderType);
@@ -246,9 +250,9 @@ public class SubLevelMeshBuilder {
     }
 
     private <E extends BlockEntity> void handleBlockEntity(final Results results, final E blockEntity) {
-        final BlockEntityRenderer<E> blockEntityRenderer = this.blockEntityRenderer.getRenderer(blockEntity);
+        final BlockEntityRenderer<E, ?> blockEntityRenderer = this.blockEntityRenderer.getRenderer(blockEntity);
         if (blockEntityRenderer != null) {
-            if (blockEntityRenderer.shouldRenderOffScreen(blockEntity)) {
+            if (blockEntityRenderer.shouldRenderOffScreen()) {
                 results.globalBlockEntities.add(blockEntity);
             } else {
                 results.blockEntities.add(blockEntity);
@@ -275,8 +279,8 @@ public class SubLevelMeshBuilder {
     public static final class Results implements NativeResource {
         public final List<BlockEntity> globalBlockEntities = new ArrayList<>();
         public final List<BlockEntity> blockEntities = new ArrayList<>();
-        public final Map<RenderType, QuadMesh> renderedQuadLayers = new Reference2ObjectArrayMap<>();
-        public final Map<RenderType, MeshData> renderedModelLayers = new Reference2ObjectArrayMap<>();
+        public final Map<ChunkSectionLayer, QuadMesh> renderedQuadLayers = new Reference2ObjectArrayMap<>();
+        public final Map<ChunkSectionLayer, MeshData> renderedModelLayers = new Reference2ObjectArrayMap<>();
         public VisibilitySet visibilitySet = new VisibilitySet();
         @Nullable
         public MeshData.SortState transparencyState;

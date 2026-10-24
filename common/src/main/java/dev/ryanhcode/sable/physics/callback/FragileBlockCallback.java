@@ -58,7 +58,7 @@ public class FragileBlockCallback implements BlockSubLevelCollisionCallback {
         if (state.getBlock() instanceof IceBlock) {
             final BlockState belowState = level.getBlockState(pos.below());
 
-            if (belowState.blocksMotion() || belowState.liquid()) {
+            if (belowState.isSolid() || belowState.liquid()) {
                 level.setBlockAndUpdate(pos, IceBlock.meltsInto());
             }
         }

@@ -32,9 +32,10 @@ public abstract class CameraMixin {
     private Vec3 position;
 
     @Shadow
-    private BlockGetter level;
+    private Level level;
 
-    @Shadow public abstract Camera.NearPlane getNearPlane();
+    @Shadow public abstract Camera.NearPlane getNearPlane(float fov);
+    @Shadow public abstract float getFov();
 
     @Inject(method = "getFluidInCamera", at = @At("RETURN"), cancellable = true)
     public void sable$getFluidInCamera(final CallbackInfoReturnable<FogType> cir) {
@@ -64,7 +65,7 @@ public abstract class CameraMixin {
         if (fluidState.is(FluidTags.WATER) && localPosition.y < (double) ((float) localBlockPosition.getY() + fluidState.getHeight(this.level, localBlockPosition))) {
             return FogType.WATER;
         } else {
-            final Camera.NearPlane nearPlane = this.getNearPlane();
+            final Camera.NearPlane nearPlane = this.getNearPlane(this.getFov());
 
             for (final Vec3 planeDir : Arrays.asList(nearPlane.getPointOnPlane(0, 0), nearPlane.getTopLeft(), nearPlane.getTopRight(), nearPlane.getBottomLeft(), nearPlane.getBottomRight())) {
                 final Vec3 localPos = pose.transformPositionInverse(this.position.add(planeDir));

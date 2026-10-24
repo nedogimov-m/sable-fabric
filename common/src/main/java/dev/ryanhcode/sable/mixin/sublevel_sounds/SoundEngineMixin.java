@@ -1,6 +1,7 @@
 package dev.ryanhcode.sable.mixin.sublevel_sounds;
 
 import dev.ryanhcode.sable.Sable;
+import com.llamalad7.mixinextras.sugar.Local;
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.sound.MovingSoundInstanceDelegate;
 import dev.ryanhcode.sable.sound.SoundInstanceDelegated;
@@ -50,16 +51,16 @@ public class SoundEngineMixin {
         return instance;
     }
 
-    @Inject(method = "tickNonPaused", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/sounds/ChannelAccess$ChannelHandle;execute(Ljava/util/function/Consumer;)V", shift = At.Shift.AFTER, ordinal = 0), locals = LocalCapture.CAPTURE_FAILEXCEPTION)
-    private void sable$tick(final CallbackInfo ci, final Iterator<TickableSoundInstance> sounds, final TickableSoundInstance sound,
-                            final float volume, final float pitch, final Vec3 pos, final ChannelAccess.ChannelHandle access) {
+    @Inject(method = "tickInGameSound", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/sounds/ChannelAccess$ChannelHandle;execute(Ljava/util/function/Consumer;)V", shift = At.Shift.AFTER, ordinal = 0))
+    private void sable$tick(final CallbackInfo ci, @Local final TickableSoundInstance sound,
+                            @Local final ChannelAccess.ChannelHandle access) {
         if (sound instanceof final MovingSoundInstanceDelegate delegated) {
             access.execute(delegated::tickWithChannel);
         }
     }
 
-    @Inject(method = "stop(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/sounds/ChannelAccess$ChannelHandle;execute(Ljava/util/function/Consumer;)V", shift = At.Shift.AFTER), locals = LocalCapture.CAPTURE_FAILEXCEPTION)
-    private void sable$clear(final SoundInstance sound, final CallbackInfo ci, final ChannelAccess.ChannelHandle access) {
+    @Inject(method = "stop(Lnet/minecraft/client/resources/sounds/SoundInstance;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/sounds/ChannelAccess$ChannelHandle;execute(Ljava/util/function/Consumer;)V", shift = At.Shift.AFTER))
+    private void sable$clear(final SoundInstance sound, final CallbackInfo ci, @Local final ChannelAccess.ChannelHandle access) {
         if (sound instanceof final MovingSoundInstanceDelegate delegated) {
             access.execute(delegated::unload);
         }

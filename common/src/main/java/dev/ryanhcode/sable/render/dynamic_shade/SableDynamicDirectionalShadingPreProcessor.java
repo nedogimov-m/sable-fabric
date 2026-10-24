@@ -13,7 +13,6 @@ import io.github.ocelot.glslprocessor.api.node.expression.GlslOperationNode;
 import io.github.ocelot.glslprocessor.api.node.function.GlslInvokeFunctionNode;
 import io.github.ocelot.glslprocessor.api.node.variable.GlslVariableNode;
 import io.github.ocelot.glslprocessor.lib.anarres.cpp.LexerException;
-import net.minecraft.client.renderer.RenderType;
 
 import java.io.IOException;
 import java.util.List;
@@ -27,24 +26,18 @@ public class SableDynamicDirectionalShadingPreProcessor implements ShaderPreProc
         }
 
         if (ctx instanceof final MinecraftContext minecraftContext) {
-            final List<RenderType> renderTypes = RenderType.chunkBufferLayers();
-
-            boolean anyMatches = false;
-
-            for (final RenderType renderType : renderTypes) {
-                if (ctx.isVertex() && minecraftContext.shaderInstance().equals("rendertype_%s".formatted(renderType.name))) {
-                    anyMatches = true;
-                }
-            }
-
-            if (!anyMatches) {
-                return;
-            }
+            final String shader = minecraftContext.shaderInstance();
+            if (!ctx.isVertex() || !java.util.Set.of("terrain", "block", "core/terrain", "core/block",
+                    "minecraft:core/terrain", "minecraft:core/block").contains(shader)) return;
         } else {
             return;
         }
 
-        ctx.include(tree, Veil.veilPath("light"), IncludeOverloadStrategy.SOURCE);
+        // Native BLOCK omits normals; the primary plot backend evaluates this shading on the CPU.
+        // Only a pipeline that actually supplies Normal can use the optional shader injection.
+        if (tree.field("Normal").isEmpty()) return;
+
+        ctx.include(tree, net.minecraft.resources.Identifier.fromNamespaceAndPath("veil", "light"), IncludeOverloadStrategy.SOURCE);
 
         tree.getBody().add(GlslInjectionPoint.BEFORE_MAIN, GlslParser.parseExpression("uniform float SableEnableNormalLighting;"));
         tree.getBody().add(GlslInjectionPoint.BEFORE_MAIN, GlslParser.parseExpression("uniform float SableSkyLightScale;"));

@@ -4,14 +4,15 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.ryanhcode.sable.Sable;
-import net.mehvahdjukaar.vista.common.view_finder.ViewFinderAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Position;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 
-@Mixin(ViewFinderAccess.Block.class)
+@Pseudo
+@Mixin(targets = "net.mehvahdjukaar.vista.common.view_finder.ViewFinderAccess$Block")
 public class ViewFinderAccessMixin {
 
     @WrapOperation(method = "stillValid", at = @At(value = "INVOKE", target = "Lnet/minecraft/core/BlockPos;distToCenterSqr(Lnet/minecraft/core/Position;)D"))

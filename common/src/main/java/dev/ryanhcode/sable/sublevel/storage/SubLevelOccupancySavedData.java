@@ -1,6 +1,7 @@
 package dev.ryanhcode.sable.sublevel.storage;
 
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
+import dev.ryanhcode.sable.sublevel.storage.SableSavedDataStorage;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -21,20 +22,16 @@ public class SubLevelOccupancySavedData extends SavedData {
     }
 
     public static SubLevelOccupancySavedData getOrLoad(final ServerLevel level) {
-        return level.getChunkSource().getDataStorage().computeIfAbsent(
-                new Factory<>(
-                        () -> new SubLevelOccupancySavedData(level),
-                        (tag, provider) -> SubLevelOccupancySavedData.load(level, tag),
-                        DataFixTypes.LEVEL
-                ),
-                SubLevelOccupancySavedData.FILE_ID);
+        return SableSavedDataStorage.getOrLoad(level.getDataStorage(), level.getDataStorage().dataFolder,
+                FILE_ID, () -> new SubLevelOccupancySavedData(level), tag -> load(level, tag),
+                data -> data.save(new CompoundTag()), DataFixTypes.LEVEL);
     }
 
 
     private static SubLevelOccupancySavedData load(final ServerLevel level, final CompoundTag tag) {
         final SubLevelOccupancySavedData data = new SubLevelOccupancySavedData(level);
 
-        final long[] longArray = tag.getLongArray("sub_level_occupancy");
+        final long[] longArray = tag.getLongArray("sub_level_occupancy").orElseGet(() -> new long[0]);
 
         if (longArray.length > 0) {
             final BitSet occupancyData = BitSet.valueOf(longArray);
@@ -50,8 +47,7 @@ public class SubLevelOccupancySavedData extends SavedData {
         return data;
     }
 
-    @Override
-    public CompoundTag save(final CompoundTag compoundTag, final HolderLookup.Provider provider) {
+    public CompoundTag save(final CompoundTag compoundTag) {
         final SubLevelContainer container = SubLevelContainer.getContainer(this.level);
         assert container != null : "Sub-level container is null";
 

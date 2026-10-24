@@ -13,26 +13,26 @@ import foundry.veil.Veil;
 import foundry.veil.api.client.render.VeilRenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import dev.ryanhcode.sable.config.ConfigSpec;
 import org.jetbrains.annotations.ApiStatus;
 
 import java.util.Arrays;
 
 public final class SableClientConfig {
 
-    public static final ModConfigSpec SPEC;
+    public static final ConfigSpec SPEC;
 
-    public static final ModConfigSpec.BooleanValue ATTEMPT_UDP_NETWORKING;
-    public static final ModConfigSpec.BooleanValue SUB_LEVEL_DYNAMIC_SHADING;
-    public static final ModConfigSpec.BooleanValue SUB_LEVEL_WATER_OCCLUSION;
-    public static final ModConfigSpec.BooleanValue SUB_LEVEL_SKYLIGHT_SHADOWS;
-    public static final ModConfigSpec.BooleanValue DEBUG_DRAW_LOADED_CHUNKS;
-    public static final ModConfigSpec.DoubleValue INTERPOLATION_DELAY;
-    public static final ModConfigSpec.EnumValue<SubLevelRenderer.SelectedRenderer> SELECTED_RENDERER;
-    public static final ModConfigSpec.DoubleValue ZOOM_SENSITIVITY;
+    public static final ConfigSpec.BooleanValue ATTEMPT_UDP_NETWORKING;
+    public static final ConfigSpec.BooleanValue SUB_LEVEL_DYNAMIC_SHADING;
+    public static final ConfigSpec.BooleanValue SUB_LEVEL_WATER_OCCLUSION;
+    public static final ConfigSpec.BooleanValue SUB_LEVEL_SKYLIGHT_SHADOWS;
+    public static final ConfigSpec.BooleanValue DEBUG_DRAW_LOADED_CHUNKS;
+    public static final ConfigSpec.DoubleValue INTERPOLATION_DELAY;
+    public static final ConfigSpec.EnumValue<SubLevelRenderer.SelectedRenderer> SELECTED_RENDERER;
+    public static final ConfigSpec.DoubleValue ZOOM_SENSITIVITY;
 
     static {
-        final ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+        final ConfigSpec.Builder builder = new ConfigSpec.Builder();
 
 
         SUB_LEVEL_DYNAMIC_SHADING = builder
@@ -90,7 +90,7 @@ public final class SableClientConfig {
 
         if (notify) {
             if (reloadShaders) {
-                VeilRenderSystem.renderer().getVanillaShaderCompiler().reload(((GameRendererAccessor) Minecraft.getInstance().gameRenderer).getShaders().values());
+                ((GameRendererAccessor) Minecraft.getInstance().gameRenderer).sable$getMinecraft().delayTextureReload();
             }
 
             if (reloadChunks) {

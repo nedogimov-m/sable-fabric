@@ -1,11 +1,11 @@
 package dev.ryanhcode.sable.mixin.dynamic_directional_shading;
 
 import dev.ryanhcode.sable.mixinterface.dynamic_directional_shading.ModelBlockRendererCacheExtension;
-import net.minecraft.client.renderer.block.ModelBlockRenderer;
+import net.minecraft.client.renderer.block.BlockModelLighter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-@Mixin(ModelBlockRenderer.Cache.class)
+@Mixin(BlockModelLighter.Cache.class)
 public class ModelBlockRendererCacheMixin implements ModelBlockRendererCacheExtension {
 
     @Unique

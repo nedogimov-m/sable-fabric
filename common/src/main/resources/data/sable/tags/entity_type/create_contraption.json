@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    { "id": "create:controlled_contraption", "required": false },
     { "id": "create:contraption", "required": false },
     { "id": "create:stationary_contraption", "required": false },
     { "id": "create:oriented_contraption", "required": false },

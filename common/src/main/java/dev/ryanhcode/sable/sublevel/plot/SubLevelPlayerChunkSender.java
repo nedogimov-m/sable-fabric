@@ -3,7 +3,7 @@ package dev.ryanhcode.sable.sublevel.plot;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
-import net.minecraft.network.protocol.game.DebugPackets;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -23,9 +23,9 @@ public class SubLevelPlayerChunkSender {
     /**
      * A version of {@link net.minecraft.server.network.PlayerChunkSender} that uses the plots light engine
      */
-    public static void sendChunkPoiData(final ServerLevel level, final LevelChunk chunk) {
+    public static void sendChunkPoiData(final ServerLevel level, final ServerPlayer player, final LevelChunk chunk) {
         final ChunkPos chunkPos = chunk.getPos();
-        DebugPackets.sendPoiPacketsForChunk(level, chunkPos);
+        level.debugSynchronizers().startTrackingChunk(player, chunkPos);
     }
 
 }

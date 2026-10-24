@@ -12,8 +12,9 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.TerrainParticle;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.world.level.ChunkPos;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -32,21 +33,22 @@ public abstract class TerrainParticleMixin extends Particle {
         super(clientLevel, d, e, f);
     }
 
-    @Redirect(method = "getLightColor", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/LevelRenderer;getLightColor(Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;)I"))
-    private int sable$getLightColor(final BlockAndTintGetter blockAndTintGetter, final BlockPos blockPos, @Local final int existingColor) {
+    @Override
+    protected int getLightCoords(final float partialTick) {
+        final int existingColor = super.getLightCoords(partialTick);
 
         final ClientSubLevelContainer container = SubLevelContainer.getContainer(Minecraft.getInstance().level);
-        assert container != null;
+        if (container == null) return existingColor;
         final SubLevel subLevel = Sable.HELPER.getContainingClient(this.pos);
 
         if (subLevel instanceof final ClientSubLevel clientSubLevel) {
-            final int color = LevelRenderer.getLightColor(blockAndTintGetter, blockPos);
+            final int color = LightCoordsUtil.getLightCoords(this.level, this.pos);
             return clientSubLevel.scaleLightColor(color);
-        } else if (container.inBounds(blockPos)) {
+        } else if (container.inBounds(this.pos)) {
             return existingColor;
         }
 
-        return LevelRenderer.getLightColor(blockAndTintGetter, blockPos);
+        return LightCoordsUtil.getLightCoords(this.level, this.pos);
     }
 
 }

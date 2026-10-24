@@ -43,7 +43,7 @@ public interface BlockEntityPropeller {
 
     default double getCurrentAirPressure() {
         final Level level = this.getLevel();
-        return DimensionPhysicsData.getAirPressure(level, Sable.HELPER.projectOutOfSubLevel(level, JOMLConversion.toJOML(this.getBlockPos().getCenter())));
+        return DimensionPhysicsData.getAirPressure(level, Sable.HELPER.projectOutOfSubLevel(level, JOMLConversion.toJOML(net.minecraft.world.phys.Vec3.atCenterOf(this.getBlockPos()))));
     }
 
     default double getAirflowScaling() {
@@ -54,7 +54,7 @@ public interface BlockEntityPropeller {
         }
 
         final Level level = this.getLevel();
-        final Vector3d pos = JOMLConversion.toJOML(this.getBlockPos().getCenter());
+        final Vector3d pos = JOMLConversion.toJOML(net.minecraft.world.phys.Vec3.atCenterOf(this.getBlockPos()));
         final SubLevel subLevel = Sable.HELPER.getContaining(level, this.getBlockPos());
 
         if (subLevel == null) {
@@ -62,7 +62,7 @@ public interface BlockEntityPropeller {
         }
 
         final Vector3d velocity = Sable.HELPER.getVelocity(level, subLevel, pos, new Vector3d());
-        final Vector3d thrustDirection = subLevel.logicalPose().transformNormal(JOMLConversion.atLowerCornerOf(this.getBlockDirection().getNormal()));
+        final Vector3d thrustDirection = subLevel.logicalPose().transformNormal(JOMLConversion.atLowerCornerOf(this.getBlockDirection().getUnitVec3i()));
 
         return Math.clamp((airflow + velocity.dot(thrustDirection.x, thrustDirection.y, thrustDirection.z)) / airflow, 0, 1);
     }

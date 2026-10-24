@@ -13,7 +13,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.tags.TagKey;
@@ -28,16 +28,16 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 
-public class PhysicsBlockPropertiesDefinitionLoader extends SimpleJsonResourceReloadListener {
+public class PhysicsBlockPropertiesDefinitionLoader extends SimpleJsonResourceReloadListener<JsonElement> {
     public static final String NAME = "physics_block_properties";
-    public static final ResourceLocation ID = Sable.sablePath(NAME);
+    public static final Identifier ID = Sable.sablePath(NAME);
 
     protected static final Gson GSON = new Gson();
     public static final PhysicsBlockPropertiesDefinitionLoader INSTANCE = new PhysicsBlockPropertiesDefinitionLoader();
     private final ObjectList<PhysicsBlockPropertiesDefinition> definitions = new ObjectArrayList<>();
 
     private PhysicsBlockPropertiesDefinitionLoader() {
-        super(GSON, NAME);
+        super(net.minecraft.util.ExtraCodecs.JSON, net.minecraft.resources.FileToIdConverter.json(NAME));
     }
 
     @Override
@@ -46,11 +46,11 @@ public class PhysicsBlockPropertiesDefinitionLoader extends SimpleJsonResourceRe
     }
 
     @Override
-    protected void apply(final Map<ResourceLocation, JsonElement> map, final ResourceManager resourceManager, final ProfilerFiller profilerFiller) {
+    protected void apply(final Map<Identifier, JsonElement> map, final ResourceManager resourceManager, final ProfilerFiller profilerFiller) {
         this.definitions.clear();
 
-        for (final Map.Entry<ResourceLocation, JsonElement> entry : map.entrySet()) {
-            final ResourceLocation file = entry.getKey();
+        for (final Map.Entry<Identifier, JsonElement> entry : map.entrySet()) {
+            final Identifier file = entry.getKey();
             final JsonElement json = entry.getValue();
 
             final DataResult<Pair<PhysicsBlockPropertiesDefinition, JsonElement>> decoded = PhysicsBlockPropertiesDefinition.CODEC.decode(JsonOps.INSTANCE, json);
@@ -79,7 +79,7 @@ public class PhysicsBlockPropertiesDefinitionLoader extends SimpleJsonResourceRe
         if (selector.tag()) {
             // The selector is a tag, let's pick all blocks
             final TagKey<Block> tagKey = TagKey.create(Registries.BLOCK, selector.id());
-            final Optional<HolderSet.Named<Block>> tagBlocks = BuiltInRegistries.BLOCK.getTag(tagKey);
+            final Optional<HolderSet.Named<Block>> tagBlocks = BuiltInRegistries.BLOCK.get(tagKey);
 
             if (tagBlocks.isPresent()) {
                 final HolderSet.Named<Block> blockHolders = tagBlocks.get();
@@ -95,7 +95,7 @@ public class PhysicsBlockPropertiesDefinitionLoader extends SimpleJsonResourceRe
         } else {
             if (BuiltInRegistries.BLOCK.containsKey(selector.id())) {
                 // The selector is not a tag, let's just get the block
-                final Block block = BuiltInRegistries.BLOCK.get(selector.id());
+                final Block block = BuiltInRegistries.BLOCK.getValue(selector.id());
                 blocks.add(block);
             } else {
                 Sable.LOGGER.error("Failed to apply tag physics properties. Unknown block: {}", selector.id());

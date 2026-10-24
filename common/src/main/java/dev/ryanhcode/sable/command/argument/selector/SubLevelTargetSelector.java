@@ -70,7 +70,7 @@ public class SubLevelTargetSelector extends SubLevelTarget {
             }
             case RANDOM -> {
                 final List<ServerSubLevel> list = new ArrayList<>(bodies);
-                yield Collections.singleton(list.get(level.random.nextInt(list.size())));
+                yield Collections.singleton(list.get(level.getRandom().nextInt(list.size())));
             }
             case INSIDE -> {
                 final ServerSubLevel subLevel = (ServerSubLevel) helper.getContaining(level, source.getPosition());

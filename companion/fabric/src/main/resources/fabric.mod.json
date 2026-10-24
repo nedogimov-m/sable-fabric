@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "sablecompanion",
+  "version": "${version}",
+  "name": "Sable Companion",
+  "description": "A lightweight library for making mods compatible with Sable",
+  "authors": ["RyanHCode", "Ocelot"],
+  "contact": {
+    "sources": "https://github.com/ryanhcode/sable-companion",
+    "issues": "https://github.com/ryanhcode/sable-companion/issues"
+  },
+  "license": "MIT",
+  "icon": "sablecompanion.png",
+  "environment": "*",
+  "depends": {
+    "minecraft": "26.3",
+    "fabricloader": ">=0.19.5",
+    "java": ">=25"
+  }
+}

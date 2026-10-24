@@ -16,6 +16,8 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerConnectionListener;
+import net.minecraft.server.network.EventLoopGroupHolder;
+import io.netty.bootstrap.ServerBootstrap;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -54,12 +56,12 @@ public class ServerConnectionListenerMixin implements ServerConnectionListenerEx
             final Class<? extends Channel> channelClass;
             final EventLoopGroup eventLoopGroup;
 
-            if (Epoll.isAvailable() && this.server.isEpollEnabled()) {
+            if (Epoll.isAvailable() && this.server.useNativeTransport()) {
                 channelClass = EpollDatagramChannel.class;
-                eventLoopGroup = ServerConnectionListener.SERVER_EPOLL_EVENT_GROUP.get();
+                eventLoopGroup = EventLoopGroupHolder.remote(true).eventLoopGroup();
             } else {
                 channelClass = NioDatagramChannel.class;
-                eventLoopGroup = ServerConnectionListener.SERVER_EVENT_GROUP.get();
+                eventLoopGroup = EventLoopGroupHolder.remote(false).eventLoopGroup();
             }
 
             Sable.LOGGER.info("Adding UDP server channel future");
@@ -90,17 +92,16 @@ public class ServerConnectionListenerMixin implements ServerConnectionListenerEx
         synchronized (this.channels) {
             Sable.LOGGER.info("Adding local UDP server channel future");
 
-            this.channels.add(new Bootstrap()
+            this.channels.add(new ServerBootstrap()
                     .channel(LocalServerChannel.class)
-                    .option(ChannelOption.SO_BROADCAST, true)
-                    .handler(new ChannelInitializer<>() {
+                    .childHandler(new ChannelInitializer<Channel>() {
                         @Override
                         protected void initChannel(final Channel channel) {
                             SableUDPPacket.configureInMemoryPipeline(channel.pipeline(), PacketFlow.SERVERBOUND);
                             ServerConnectionListenerMixin.this.sable$setupChannel(channel);
                         }
                     })
-                    .group(ServerConnectionListener.SERVER_EVENT_GROUP.get())
+                    .group(EventLoopGroupHolder.local().eventLoopGroup())
                     .localAddress(LocalAddress.ANY)
                     .bind()
                     .syncUninterruptibly());

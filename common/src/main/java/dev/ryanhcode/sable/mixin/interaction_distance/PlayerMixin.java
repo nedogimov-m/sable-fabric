@@ -29,7 +29,10 @@ public abstract class PlayerMixin extends LivingEntity {
     @Shadow
     public abstract double blockInteractionRange();
 
-    @Inject(method = "canInteractWithBlock", at = @At("HEAD"), cancellable = true)
+    @Shadow
+    public abstract double entityInteractionRange();
+
+    @Inject(method = "isWithinBlockInteractionRange", at = @At("HEAD"), cancellable = true)
     private void sable$canInteractWithBlock(final BlockPos pos, final double slop, final CallbackInfoReturnable<Boolean> cir) {
         final SubLevel subLevel = Sable.HELPER.getContaining(this.level(), pos);
 
@@ -43,13 +46,13 @@ public abstract class PlayerMixin extends LivingEntity {
         }
     }
 
-    @Inject(method = "canInteractWithEntity(Lnet/minecraft/world/phys/AABB;D)Z", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "isWithinEntityInteractionRange(Lnet/minecraft/world/phys/AABB;D)Z", at = @At("HEAD"), cancellable = true)
     private void sable$canInteractWithEntity(final AABB aabb, final double slop, final CallbackInfoReturnable<Boolean> cir) {
         // should bottom center be assumed here?
         final SubLevel subLevel = Sable.HELPER.getContaining(this.level(), aabb.getBottomCenter());
 
         if (subLevel != null) {
-            final double rangeWithSlop = this.blockInteractionRange() + slop;
+            final double rangeWithSlop = this.entityInteractionRange() + slop;
             final Vec3 eyePos = subLevel.logicalPose().transformPositionInverse(this.getEyePosition());
 
             final boolean closeEnough = aabb.distanceToSqr(eyePos) < rangeWithSlop * rangeWithSlop;

@@ -6,6 +6,9 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import dev.ryanhcode.sable.command.data_accessor.SubLevelDataAccessor;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.server.commands.data.DataCommands;
+import net.minecraft.server.commands.data.DataAccessor;
+import net.minecraft.server.commands.ArgProvider;
+import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
@@ -14,13 +17,13 @@ import java.util.function.Function;
 @Mixin(DataCommands.class)
 public class DataCommandsMixin {
 
-    @WrapOperation(method = "<clinit>", at = @At(value = "INVOKE", target = "Lcom/google/common/collect/ImmutableList;of(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Lcom/google/common/collect/ImmutableList;", remap = false))
-    private static <E> ImmutableList<Function<String, DataCommands.DataProvider>> sable$allProviders(final E e1, final E e2, final E e3, final Operation<ImmutableList<Function<String, DataCommands.DataProvider>>> original) {
+    @WrapOperation(method = "<clinit>", at = @At(value = "INVOKE", target = "Ljava/util/List;of(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/List;", remap = false))
+    private static <E> List<ArgProvider.Factory<DataAccessor>> sable$allProviders(final E e1, final E e2, final E e3, final Operation<List<ArgProvider.Factory<DataAccessor>>> original) {
         @SuppressWarnings("unchecked")
-        final ImmutableList<Function<String, DataCommands.DataProvider>> providers = (ImmutableList<Function<String, DataCommands.DataProvider>>) ((Operation) original).call(e1, e2, e3);
-        final ObjectArrayList<Function<String, DataCommands.DataProvider>> mutableList = new ObjectArrayList<>(providers);
+        final List<ArgProvider.Factory<DataAccessor>> providers = (List<ArgProvider.Factory<DataAccessor>>) ((Operation) original).call(e1, e2, e3);
+        final ObjectArrayList<ArgProvider.Factory<DataAccessor>> mutableList = new ObjectArrayList<>(providers);
         mutableList.add(SubLevelDataAccessor.PROVIDER);
 
-        return  ImmutableList.copyOf(mutableList);
+        return List.copyOf(mutableList);
     }
 }

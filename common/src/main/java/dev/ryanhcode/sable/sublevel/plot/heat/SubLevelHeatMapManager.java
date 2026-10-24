@@ -31,6 +31,7 @@ import java.util.*;
 public class SubLevelHeatMapManager {
 
     private static final Collection<SplitListener> LISTENERS = new ObjectArraySet<>();
+    private static final Collection<SplitPreparation> PREPARATIONS = new ObjectArraySet<>();
 
     /**
      * All directions to check for solid blocks in 3D (including diagonals)
@@ -92,7 +93,7 @@ public class SubLevelHeatMapManager {
     private boolean step() {
         if (this.state == HeatMapPropagationState.FILLING) {
             if (!this.floodfill.isEmpty()) {
-                final BlockPos p = new BlockPos(this.floodfill.getFirst());
+                final BlockPos p = this.floodfill.getFirst().immutable();
                 this.floodfill.removeFirst();
                 if (this.heatMapContains(p)) {
                     final int currentHeat = this.heatMapGet(p);
@@ -114,13 +115,15 @@ public class SubLevelHeatMapManager {
                 this.state = HeatMapPropagationState.CLEARING;
 
                 // Split off separated regions!
-                if (!this.subLevelSplits.isEmpty())
-                    this.split();
+                if (!this.subLevelSplits.isEmpty() && !this.split()) {
+                    this.splitComplete = false;
+                    return true;
+                }
             }
         }
         if (this.state == HeatMapPropagationState.CLEARING) {
             if (!this.floodfill.isEmpty()) {
-                final BlockPos p = new BlockPos(this.floodfill.getFirst());
+                final BlockPos p = this.floodfill.getFirst().immutable();
                 this.floodfill.removeFirst();
                 if (this.heatMapContains(p)) {
                     final int currentHeat = this.heatMapGet(p);
@@ -149,7 +152,7 @@ public class SubLevelHeatMapManager {
                 }
             } else if (!this.removed.isEmpty()) {
                 for (final BlockPos index : this.removed) {
-                    final BlockPos p = new BlockPos(index);
+                    final BlockPos p = index.immutable();
                     if (this.heatMapContains(p)) {
                         final int currentHeat = this.heatMapGet(p);
                         for (final BlockPos dir : DIRECTION_OFFSETS) {
@@ -184,7 +187,10 @@ public class SubLevelHeatMapManager {
             } else if (!this.subLevelSplits.isEmpty()) {
                 this.splitComplete = true;
                 // Split off separated regions!
-                this.split();
+                if (!this.split()) {
+                    this.splitComplete = false;
+                    return true;
+                }
             } else {
                 this.splitComplete = true;
                 // Nothing left to do, stop looping
@@ -194,7 +200,7 @@ public class SubLevelHeatMapManager {
         return false;
     }
 
-    private void split() {
+    private boolean split() {
         final Int2ObjectMap<List<BlockPos>> newSubLevelBlocks = new Int2ObjectOpenHashMap<>();
         for (final long l : this.subLevelSplits.keySet()) {
             final int splitIndex = this.splitIndexMap.get(this.subLevelSplits.get(l));
@@ -202,12 +208,12 @@ public class SubLevelHeatMapManager {
         }
 
         final boolean splittingWholeSubLevel = newSubLevelBlocks.size() == 1 && this.solidCount == newSubLevelBlocks.values().stream().findFirst().orElseThrow().size();
+        List<BlockPos> retainedBlocks = null;
         // in the case there is only a single split, and it is the entire sub-level, let's just clear the splits and
         // not do anything (ideally). we have to rebuild the heatmap though, as the root is gone...
         if (splittingWholeSubLevel) {
             final List<BlockPos> allBlocks = newSubLevelBlocks.values().stream().findFirst().orElseThrow();
-            this.rebuildHeatmapFrom(allBlocks);
-
+            retainedBlocks = allBlocks;
             newSubLevelBlocks.clear();
         }
 
@@ -223,22 +229,31 @@ public class SubLevelHeatMapManager {
 
         if (!splittingWholeSubLevel && totalSplitBlocks != 0 && totalSplitBlocks == this.solidCount) {
             final Map.Entry<Integer, List<BlockPos>> minSize = newSubLevelBlocks.entrySet().stream().sorted(Comparator.comparingInt(a -> -a.getValue().size())).findFirst().orElseThrow();
-            this.rebuildHeatmapFrom(minSize.getValue());
+            retainedBlocks = minSize.getValue();
             newSubLevelBlocks.remove((int) minSize.getKey());
         }
 
+        final Level level = this.subLevel.getLevel();
+        // A paid native contraption can refuse restoration while its chunks/owners are unavailable.
+        // Keep the original heatmap, split indices and plot intact so the next tick can retry.
+        for (final List<BlockPos> blocks : newSubLevelBlocks.values()) {
+            final BoundingBox3i bounds = Objects.requireNonNull(BoundingBox3i.from(blocks)).expand(1, 1, 1);
+            for (final SplitPreparation preparation : PREPARATIONS) {
+                if (!preparation.prepare(level, bounds, blocks)) return false;
+            }
+        }
+        if (retainedBlocks != null) this.rebuildHeatmapFrom(retainedBlocks);
         this.subLevelSplits.clear();
         this.splitIndexMap.clear();
         this.splitIndexMap.add(0);
-        final Level level = this.subLevel.getLevel();
 
         for (final List<BlockPos> blocks : newSubLevelBlocks.values()) {
-            final BoundingBox3i bounds = Objects.requireNonNull(BoundingBox3i.from(blocks)).expand(1, 1, 1);
-
             for (final SplitListener listener : LISTENERS) {
+                final BoundingBox3i bounds = Objects.requireNonNull(BoundingBox3i.from(blocks)).expand(1, 1, 1);
                 listener.addBlocks(level, bounds, blocks);
             }
 
+            final BoundingBox3i bounds = Objects.requireNonNull(BoundingBox3i.from(blocks)).expand(1, 1, 1);
             final ServerSubLevel subLevel = SubLevelAssemblyHelper.assembleBlocks((ServerLevel) level, blocks.get(0), blocks, bounds);
 
             // Protect against split sub-levels that have zero mass.
@@ -249,6 +264,7 @@ public class SubLevelHeatMapManager {
                 container.removeSubLevel(subLevel, SubLevelRemovalReason.REMOVED);
             }
         }
+        return true;
     }
 
     private void rebuildHeatmapFrom(final List<BlockPos> blocks) {
@@ -381,6 +397,16 @@ public class SubLevelHeatMapManager {
      */
     public static void addSplitListener(final SplitListener listener) {
         LISTENERS.add(listener);
+    }
+
+    /** Runs before heatmap reset or plot transfer. False retains the split for a later retry. */
+    public static void addSplitPreparation(final SplitPreparation preparation) {
+        PREPARATIONS.add(preparation);
+    }
+
+    @FunctionalInterface
+    public interface SplitPreparation {
+        boolean prepare(Level level, BoundingBox3ic assemblyBounds, Collection<BlockPos> blocks);
     }
 
     @FunctionalInterface

@@ -4,14 +4,15 @@ import dev.ryanhcode.sable.ActiveSableCompanion;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.sublevel.SubLevel;
-import net.minecraft.client.renderer.item.CompassItemPropertyFunction;
+import net.minecraft.client.renderer.item.properties.numeric.CompassAngleState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ItemOwner;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 
-@Mixin(CompassItemPropertyFunction.class)
+@Mixin(CompassAngleState.class)
 public abstract class CompassItemPropertyFunctionMixin {
 
     /**
@@ -19,15 +20,15 @@ public abstract class CompassItemPropertyFunctionMixin {
      * @reason Take into account sub-levels
      */
     @Overwrite
-    private double getAngleFromEntityToPos(final Entity entity, final BlockPos pos) {
+    private static double getAngleFromEntityToPos(final ItemOwner owner, final BlockPos pos) {
         Vec3 localPos = Vec3.atCenterOf(pos);
-        double entityX = entity.getX();
-        double entityZ = entity.getZ();
+        double entityX = owner.position().x;
+        double entityZ = owner.position().z;
 
         final ActiveSableCompanion helper = Sable.HELPER;
-        SubLevel subLevel = helper.getContaining(entity);
+        SubLevel subLevel = helper.getContaining(owner.level(), owner.position());
 
-        if (subLevel == null) {
+        if (subLevel == null && owner instanceof final Entity entity) {
             final Entity vehicle = entity.getVehicle();
 
             if (vehicle != null) {

@@ -20,19 +20,16 @@ import java.util.function.Function;
 @Mixin(EntityType.class)
 public class EntityTypeMixin {
 
-    @Inject(method = {"method_17843", "lambda$loadEntityRecursive$7"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;startRiding(Lnet/minecraft/world/entity/Entity;Z)Z"))
-    private static void sable$startRidingEntity(final CompoundTag compoundTag,
-                                                final Level level,
-                                                final Function function,
-                                                final Entity entity,
-                                                final CallbackInfoReturnable<Entity> cir,
-                                                @Local(ordinal = 1) final Entity newEntity) {
-        final SubLevel vehicleSubLevel = Sable.HELPER.getContaining(entity);
-
-        if (vehicleSubLevel != null && EntitySubLevelUtil.shouldKick(newEntity)) {
-            final Vec3 pos = EntityRidingSubLevelVehicleHelper.kickRidingEntity(newEntity, vehicleSubLevel);
-            newEntity.setPos(pos);
+    @com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation(method = "loadPassengersRecursive",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;startRiding(Lnet/minecraft/world/entity/Entity;ZZ)Z"))
+    private static boolean sable$startRidingEntity(final Entity passenger, final Entity vehicle,
+            final boolean force, final boolean sendEvent,
+            final com.llamalad7.mixinextras.injector.wrapoperation.Operation<Boolean> original) {
+        final SubLevel vehicleSubLevel = Sable.HELPER.getContaining(vehicle);
+        if (vehicleSubLevel != null && EntitySubLevelUtil.shouldKick(passenger)) {
+            final Vec3 position = EntityRidingSubLevelVehicleHelper.kickRidingEntity(passenger, vehicleSubLevel);
+            passenger.setPos(position);
         }
+        return original.call(passenger, vehicle, force, sendEvent);
     }
-
 }

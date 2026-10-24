@@ -256,7 +256,7 @@ public class RapierPhysicsPipeline implements PhysicsPipeline {
                     if (blockState.isAir()) continue;
 
                     final SectionPos sectionPos = SectionPos.of(blockPos);
-                    final UploadingContraptionChunk chunk = chunks.computeIfAbsent(sectionPos.asLong(), longPos -> new UploadingContraptionChunk(new int[LevelChunkSection.SECTION_SIZE]));
+                    final UploadingContraptionChunk chunk = chunks.computeIfAbsent(sectionPos.asLong(), longPos -> new UploadingContraptionChunk(new int[SectionPos.SECTION_BLOCK_COUNT]));
 
                     final VoxelNeighborhoodState state = VoxelNeighborhoodState.CORNER;
                     final RapierVoxelColliderData colliderData = this.colliderBakery.getPhysicsDataForBlock(blockState);
@@ -333,7 +333,7 @@ public class RapierPhysicsPipeline implements PhysicsPipeline {
         this.accelerator.clearCache();
 
         // this means the x coordinate is the fastest changing, then z, then y
-        final int[] array = new int[LevelChunkSection.SECTION_SIZE];
+        final int[] array = new int[SectionPos.SECTION_BLOCK_COUNT];
 
         final SectionPos sectionPos = SectionPos.of(x, y, z);
 

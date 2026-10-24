@@ -12,6 +12,7 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Quaterniond;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.function.Function;
@@ -21,8 +22,20 @@ public abstract class EntityMixin  {
 
     @Shadow private Level level;
 
-    @ModifyReturnValue(method = "calculateViewVector", at = @At("RETURN"))
-    public Vec3 sable$calculateViewVector(final Vec3 original) {
+    // Native calculateViewVector is context-free static math. These two instance
+    // dispatchers own the entity and call it independently, so each rotates once.
+    @ModifyReturnValue(method = "getViewVector(F)Lnet/minecraft/world/phys/Vec3;", at = @At("RETURN"))
+    private Vec3 sable$rotateViewVector(final Vec3 original, final float partialTicks) {
+        return this.sable$rotateEntityView(original, partialTicks);
+    }
+
+    @ModifyReturnValue(method = "getLookAngle()Lnet/minecraft/world/phys/Vec3;", at = @At("RETURN"))
+    private Vec3 sable$rotateLookAngle(final Vec3 original) {
+        return this.sable$rotateEntityView(original, 1.0f);
+    }
+
+    @Unique
+    private Vec3 sable$rotateEntityView(final Vec3 original, final float partialTicks) {
         final Function<SubLevel, Pose3dc> provider;
 
         if (this.level instanceof final LevelPoseProviderExtension levelPoseProvider) {
@@ -31,7 +44,7 @@ public abstract class EntityMixin  {
             provider = SubLevel::logicalPose;
         }
 
-        final Quaterniond orientation = EntitySubLevelRotationHelper.getEntityOrientation((Entity) (Object) this, provider, 0.0f, EntitySubLevelRotationHelper.Type.CAMERA);
+        final Quaterniond orientation = EntitySubLevelRotationHelper.getEntityOrientation((Entity) (Object) this, provider, partialTicks, EntitySubLevelRotationHelper.Type.CAMERA);
 
         if (orientation != null) {
             return JOMLConversion.toMojang(orientation.transform(JOMLConversion.toJOML(original)));

@@ -1,37 +1,32 @@
 package dev.ryanhcode.sable.fabric.mixin.dynamic_directional_shading;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.mixinterface.dynamic_directional_shading.ModelBlockRendererCacheExtension;
-import dev.ryanhcode.sable.sublevel.plot.LevelPlot;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.SectionBufferBuilderPack;
-import net.minecraft.client.renderer.block.ModelBlockRenderer;
-import net.minecraft.client.renderer.chunk.RenderChunkRegion;
+import net.minecraft.client.renderer.block.BlockModelLighter;
+import net.minecraft.client.renderer.chunk.RenderSectionRegion;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.minecraft.core.SectionPos;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SectionCompiler.class)
 public class SectionCompilerMixin {
-
-    @Inject(method = "compile", at = @At(value = "HEAD"))
-    private void sable$preCompile(final SectionPos sectionPos, final RenderChunkRegion renderChunkRegion, final VertexSorting vertexSorting, final SectionBufferBuilderPack sectionBufferBuilderPack, final CallbackInfoReturnable<SectionCompiler.Results> cir) {
-        final ClientLevel level = Minecraft.getInstance().level;
-        final SubLevelContainer container = SubLevelContainer.getContainer(level);
-
-        final LevelPlot plot = container.getPlot(sectionPos.chunk());
-
-        ((ModelBlockRendererCacheExtension) ModelBlockRenderer.CACHE.get()).sable$setOnSubLevel(plot != null);
+    @WrapMethod(method = "compile")
+    private SectionCompiler.Results sable$compileInPlot(final SectionPos sectionPos, final RenderSectionRegion region,
+                                                        final VertexSorting sorting, final SectionBufferBuilderPack buffers,
+                                                        final Operation<SectionCompiler.Results> original) {
+        final var container = SubLevelContainer.getContainer(Minecraft.getInstance().level);
+        final var cache = (ModelBlockRendererCacheExtension) BlockModelLighter.CACHE.get();
+        final boolean previous = cache.sable$getOnSubLevel();
+        cache.sable$setOnSubLevel(container != null && container.getPlot(sectionPos.chunk()) != null);
+        try {
+            return original.call(sectionPos, region, sorting, buffers);
+        } finally {
+            cache.sable$setOnSubLevel(previous);
+        }
     }
-
-    @Inject(method = "compile", at = @At("TAIL"))
-    private void sable$postCompile(final SectionPos sectionPos, final RenderChunkRegion renderChunkRegion, final VertexSorting vertexSorting, final SectionBufferBuilderPack sectionBufferBuilderPack, final CallbackInfoReturnable<SectionCompiler.Results> cir) {
-        ((ModelBlockRendererCacheExtension) ModelBlockRenderer.CACHE.get()).sable$setOnSubLevel(false);
-    }
-
 }

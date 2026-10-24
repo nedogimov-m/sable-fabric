@@ -22,14 +22,14 @@ public class ClientSubLevelPunchHelper {
         final Minecraft minecraft = Minecraft.getInstance();
         final LocalPlayer player = minecraft.player;
         if (player.blockActionRestricted(level, hitResult.getBlockPos(), minecraft.gameMode.getPlayerMode()) ||
-                player.getCooldowns().isOnCooldown(player.getMainHandItem().getItem())) {
+                player.getCooldowns().isOnCooldown(player.getMainHandItem())) {
             return;
         }
 
         if (player.isCreative() && testCreativeBreaking) {
             final BlockState blockState = minecraft.level.getBlockState(hitResult.getBlockPos());
 
-            if (player.getMainHandItem().getItem().canAttackBlock(blockState, minecraft.level, hitResult.getBlockPos(), player)) {
+            if (player.getMainHandItem().canDestroyBlock(blockState, minecraft.level, hitResult.getBlockPos(), player)) {
                 return;
             }
         }
@@ -58,7 +58,7 @@ public class ClientSubLevelPunchHelper {
 
         final int customCooldown = SableAttributes.getPushCooldownTicks(player);
         if (customCooldown > 0) {
-            player.getCooldowns().addCooldown(player.getMainHandItem().getItem(), customCooldown);
+            player.getCooldowns().addCooldown(player.getMainHandItem(), customCooldown);
         }
 
         minecraft.getConnection().send(new ServerboundCustomPayloadPacket(new ServerboundPunchSubLevelPacket(

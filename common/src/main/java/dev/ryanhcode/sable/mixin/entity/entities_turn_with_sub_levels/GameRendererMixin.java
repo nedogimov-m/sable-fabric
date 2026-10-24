@@ -34,17 +34,27 @@ public class GameRendererMixin {
     @Unique
     private UUID sable$lastSubLevel = null;
 
-    @Inject(method = "renderLevel", at = @At("HEAD"))
-    public void renderLevel(final DeltaTracker deltaTracker, final CallbackInfo ci) {
+    @Unique
+    private LocalPlayer sable$lastPlayer;
+
+    @Inject(method = "update(Lnet/minecraft/client/DeltaTracker;)V", at = @At("HEAD"))
+    private void sable$updateStandingRotation(final DeltaTracker deltaTracker, final CallbackInfo ci) {
         final LocalPlayer player = this.minecraft.player;
+        // Native update also runs on loading/title frames, before Camera.update.
+        // Retire the previous world sample before touching the entity helper.
+        if (player == null || this.minecraft.level == null || player.level() != this.minecraft.level) {
+            this.sable$resetStandingRotation();
+            return;
+        }
         final SubLevel standingSubLevel = Sable.HELPER.getTrackingSubLevel(player);
 
-        if (standingSubLevel != null && player.getVehicle() == null && !standingSubLevel.isRemoved() && !EntitySubLevelUtil.hasCustomEntityOrientation(player)) {
-            final Quaterniondc current = ((ClientSubLevel) standingSubLevel).renderPose().orientation();
+        if (standingSubLevel instanceof final ClientSubLevel clientSubLevel && player.getVehicle() == null && !standingSubLevel.isRemoved() && !EntitySubLevelUtil.hasCustomEntityOrientation(player)) {
+            final Quaterniondc current = clientSubLevel.renderPose().orientation();
 
-            if (this.sable$lastSubLevel == null || !this.sable$lastSubLevel.equals(standingSubLevel.getUniqueId())) {
+            if (this.sable$lastPlayer != player || this.sable$lastSubLevel == null || !this.sable$lastSubLevel.equals(standingSubLevel.getUniqueId())) {
                 this.sable$lastOrientation.set(current);
                 this.sable$lastSubLevel = standingSubLevel.getUniqueId();
+                this.sable$lastPlayer = player;
             }
 
             final Quaterniond relativeOrientation;
@@ -71,7 +81,20 @@ public class GameRendererMixin {
 
             this.sable$lastOrientation.set(current);
         } else {
-            this.sable$lastSubLevel = null;
+            this.sable$resetStandingRotation();
         }
+    }
+
+    @Inject(method = "resetData", at = @At("HEAD"))
+    private void sable$resetStandingRotation(final CallbackInfo ci) {
+        this.sable$resetStandingRotation();
+    }
+
+    @Unique
+    private void sable$resetStandingRotation() {
+        this.sable$lastSubLevel = null;
+        this.sable$lastPlayer = null;
+        this.sable$lastOrientation.identity();
+        this.sable$relativeOrientation.identity();
     }
 }

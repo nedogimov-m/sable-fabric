@@ -340,7 +340,7 @@ public class SubLevelEntityCollision {
                         final BlockPos newPos = sink.offsetPos.setWithOffset(maxBlockPos, offsetX, offsetY, offsetZ);
                         final BlockState offsetState = accel.getBlockState(newPos);
                         final VoxelShape offsetShape = getSubLevelEntityCollisionShape(entity, entityBoundsCenter, subLevelPose, offsetState, accel, newPos, sink);
-                        final Direction direction = Direction.get(Direction.AxisDirection.POSITIVE, Direction.getNearest(offsetX, offsetY, offsetZ).getAxis());
+                        final Direction direction = Direction.get(Direction.AxisDirection.POSITIVE, Direction.getApproximateNearest(offsetX, offsetY, offsetZ).getAxis());
 
                         final BoundingBox3d offsetAABB = sink.offsetAABB;
                         final BoundingBox3d compressedMinAABB = sink.compressedMinAABB;

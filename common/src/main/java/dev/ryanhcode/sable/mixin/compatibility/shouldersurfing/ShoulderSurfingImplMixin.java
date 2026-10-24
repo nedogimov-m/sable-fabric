@@ -17,7 +17,7 @@ public class ShoulderSurfingImplMixin {
 
     @WrapOperation(method = "togglePerspective", at = @At(value = "INVOKE", target = "Lcom/github/exopandora/shouldersurfing/api/model/Perspective;next(Lcom/github/exopandora/shouldersurfing/api/client/IClientConfig;)Lcom/github/exopandora/shouldersurfing/api/model/Perspective;"))
     public Perspective next(final Perspective instance, final IClientConfig config, final Operation<Perspective> original) {
-        final Entity cameraEntity = Minecraft.getInstance().cameraEntity;
+        final Entity cameraEntity = Minecraft.getInstance().getCameraEntity();
 
         Perspective next = original.call(instance, config);
         while (next == SablePerspectives.SUB_LEVEL_VIEW || next == SablePerspectives.SUB_LEVEL_VIEW_UNLOCKED) {

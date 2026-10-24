@@ -6,9 +6,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
-import toni.sodiumextras.EmbyTools;
+import org.spongepowered.asm.mixin.Pseudo;
 
-@Mixin(EmbyTools.class)
+@Pseudo
+@Mixin(targets = "toni.sodiumextras.EmbyTools", remap = false)
 public class EmbyToolsMixin {
 
     /**

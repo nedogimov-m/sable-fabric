@@ -43,7 +43,7 @@ public class ChunkMapMixin {
     }
 
     @Inject(method = "saveChunkIfNeeded", at = @At("HEAD"), cancellable = true)
-    private void sable$saveChunkIfNeeded(final ChunkHolder chunkHolder, final CallbackInfoReturnable<Boolean> cir) {
+    private void sable$saveChunkIfNeeded(final ChunkHolder chunkHolder, final long currentTime, final CallbackInfoReturnable<Boolean> cir) {
         if (chunkHolder instanceof PlotChunkHolder) {
             cir.setReturnValue(false);
         }
@@ -66,7 +66,7 @@ public class ChunkMapMixin {
         final LevelPlot plot = container.getPlot(new ChunkPos(x, z));
         if (plot != null) {
             final ServerSubLevel subLevel = (ServerSubLevel) plot.getSubLevel();
-            return subLevel.getTrackingPlayers().contains(serverPlayer.getGameProfile().getId());
+            return subLevel.getTrackingPlayers().contains(serverPlayer.getGameProfile().id());
         }
 
         return original;

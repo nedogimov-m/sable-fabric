@@ -1,15 +1,15 @@
 package dev.ryanhcode.sable.render.dynamic_shade;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
 
 /**
- * Make all shade-less things have a normal pointing straight up for dynamic shading!
+ * Preserve model shade overrides as normals when shading is evaluated after plot rotation.
  */
 public class SubLevelVertexConsumer implements VertexConsumer {
     private final VertexConsumer delegate;
-    private boolean verticalNormal;
 
     public SubLevelVertexConsumer(final VertexConsumer delegate) {
         this.delegate = delegate;
@@ -25,6 +25,12 @@ public class SubLevelVertexConsumer implements VertexConsumer {
     @Override
     public VertexConsumer setColor(final int i, final int j, final int k, final int l) {
         this.delegate.setColor(i, j, k, l);
+        return this;
+    }
+
+    @Override
+    public VertexConsumer setColor(final int color) {
+        this.delegate.setColor(color);
         return this;
     }
 
@@ -47,20 +53,42 @@ public class SubLevelVertexConsumer implements VertexConsumer {
     }
 
     @Override
-    public VertexConsumer setNormal(final float pX, final float pY, final float pZ) {
-        if (this.verticalNormal) {
-            this.delegate.setNormal(0f, 1f, 0f);
-        } else {
-            this.delegate.setNormal(pX, pY, pZ);
-        }
+    public VertexConsumer setUv3(final float u, final float v) {
+        this.delegate.setUv3(u, v);
         return this;
     }
 
     @Override
-    public void putBulkData(final PoseStack.Pose pose, final BakedQuad bakedQuad, final float[] fs, final float f, final float g, final float h, final float i, final int[] is, final int j, final boolean bl) {
-        this.verticalNormal = !bakedQuad.isShade();
-        VertexConsumer.super.putBulkData(pose, bakedQuad, fs, f, g, h, i, is, j, bl);
-        this.verticalNormal = false;
+    public VertexConsumer setLineWidth(final float width) {
+        this.delegate.setLineWidth(width);
+        return this;
     }
 
+    @Override
+    public VertexConsumer setNormal(final float pX, final float pY, final float pZ) {
+        this.delegate.setNormal(pX, pY, pZ);
+        return this;
+    }
+
+    @Override
+    public void putBlockBakedQuad(final float x, final float y, final float z, final BakedQuad quad, final QuadInstance instance) {
+        this.delegate.putBlockBakedQuad(x, y, z, withShadeNormal(quad), instance);
+    }
+
+    @Override
+    public void putBakedQuad(final PoseStack.Pose pose, final BakedQuad quad, final QuadInstance instance) {
+        this.delegate.putBakedQuad(pose, withShadeNormal(quad), instance);
+    }
+
+    @Override
+    public void putBakedQuadWithGlint(final PoseStack.Pose pose, final BakedQuad quad, final QuadInstance instance, final PoseStack.Pose glintPose) {
+        this.delegate.putBakedQuadWithGlint(pose, withShadeNormal(quad), instance, glintPose);
+    }
+
+    public static BakedQuad withShadeNormal(final BakedQuad quad) {
+        final var direction = quad.materialInfo().shadeDirectionOverride();
+        if (direction == null || direction == quad.direction()) return quad;
+        return new BakedQuad(quad.position0(), quad.position1(), quad.position2(), quad.position3(),
+                quad.packedUV0(), quad.packedUV1(), quad.packedUV2(), quad.packedUV3(), direction, quad.materialInfo());
+    }
 }

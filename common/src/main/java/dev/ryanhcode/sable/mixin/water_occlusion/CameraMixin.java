@@ -20,7 +20,7 @@ public class CameraMixin implements CameraWaterOcclusionExtension {
     private Vec3 position;
 
     @Shadow
-    private BlockGetter level;
+    private Level level;
 
     @Unique
     private boolean sable$ignoreOcclusion = false;

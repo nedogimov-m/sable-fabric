@@ -245,7 +245,7 @@ public class SubLevelAssemblyHelper {
                             continue;
                         }
 
-                        final Direction direction = absTotal == 1 ? Direction.fromDelta(x, y, z) : null;
+                        final Direction direction = absTotal == 1 ? Direction.getNearest(x, y, z, null) : null;
                         final BlockState candidateState = accelerator.getBlockState(candidate);
 
                         if (candidateState.isAir()) {
@@ -340,9 +340,9 @@ public class SubLevelAssemblyHelper {
             if (firstBlock == null) {
                 firstBlock = block;
             }
-            final ChunkPos chunk = new ChunkPos(transform.apply(block));
+            final ChunkPos chunk = ChunkPos.containing(transform.apply(block));
 
-            final Vector2i jomlChunkPos = new Vector2i(chunk.x, chunk.z);
+            final Vector2i jomlChunkPos = new Vector2i(chunk.x(), chunk.z());
             if (chunkBoundsMin == null) {
                 chunkBoundsMin = new Vector2i(jomlChunkPos);
                 chunkBoundsMax = new Vector2i(jomlChunkPos);
@@ -401,25 +401,26 @@ public class SubLevelAssemblyHelper {
                     if (blockEntity instanceof final RandomizableContainer container) {
                         container.setLootTable(null);
                     }
-                    Clearable.tryClear(blockEntity);
+                    if (blockEntity instanceof final Clearable clearable) clearable.clearContent();
                 }
 
                 final LevelChunk chunk = resultingAccelerator.getChunk(SectionPos.blockToSectionCoord(newPos.getX()), SectionPos.blockToSectionCoord(newPos.getZ()));
 
-                chunk.setBlockState(newPos, subLevelState, true);
+                chunk.setBlockState(newPos, subLevelState, Block.UPDATE_MOVE_BY_PISTON);
                 states.add(subLevelState);
 
                 final BlockEntity newBlockEntity = resultingLevel.getBlockEntity(newPos);
 
                 if (newBlockEntity != null && tag != null) {
-                    newBlockEntity.loadWithComponents(tag, level.registryAccess());
+                    newBlockEntity.loadWithComponents(net.minecraft.world.level.storage.TagValueInput.create(
+                            net.minecraft.util.ProblemReporter.DISCARDING, resultingLevel.registryAccess(), tag));
                 }
 
                 if (state.getBlock() instanceof final BlockSubLevelAssemblyListener listener) {
                     listener.afterMove(level, resultingLevel, state, block, newPos);
                 }
 
-                level.onBlockStateChange(newPos, airState, state);
+                level.updatePOIOnBlockStateChange(newPos, airState, state);
             } catch (final Exception e) {
                 Sable.LOGGER.error("Failed to move block {} at {} to {}", state, block, newPos, e);
             }
@@ -448,8 +449,8 @@ public class SubLevelAssemblyHelper {
                 final LevelChunk chunk = accelerator.getChunk(SectionPos.blockToSectionCoord(block.getX()),
                         SectionPos.blockToSectionCoord(block.getZ()));
 
-                level.onBlockStateChange(block, chunk.getBlockState(block), airState);
-                chunk.setBlockState(block, airState, true);
+                level.updatePOIOnBlockStateChange(block, chunk.getBlockState(block), airState);
+                chunk.setBlockState(block, airState, Block.UPDATE_MOVE_BY_PISTON);
             } catch (final Exception e) {
                 Sable.LOGGER.error("Failed to destroy old block during assembly {}", block, e);
             }
@@ -475,7 +476,7 @@ public class SubLevelAssemblyHelper {
             }
 
             if ((pFlags & 1) != 0) {
-                level.blockUpdated(pPos, oldState.getBlock());
+                level.updateNeighborsAt(pPos, oldState.getBlock());
                 if (newState.hasAnalogOutputSignal()) {
                     level.updateNeighbourForOutputSignal(pPos, block);
                 }
@@ -488,7 +489,7 @@ public class SubLevelAssemblyHelper {
                 newState.updateIndirectNeighbourShapes(level, pPos, i, pRecursionLeft - 1);
             }
 
-            level.onBlockStateChange(pPos, oldState, worldState);
+            level.updatePOIOnBlockStateChange(pPos, oldState, worldState);
         }
     }
 
@@ -536,14 +537,14 @@ public class SubLevelAssemblyHelper {
         }
 
         public Vec3 apply(Vec3 pos) {
-            pos = pos.subtract(this.anchorPos.getCenter())
+            pos = pos.subtract(Vec3.atCenterOf(this.anchorPos))
                     .yRot((float) (this.angle * Math.PI / 2.0))
-                    .add(this.resultingAnchorPos.getCenter());
+                    .add(Vec3.atCenterOf(this.resultingAnchorPos));
             return pos;
         }
 
         public BlockPos apply(final BlockPos pos) {
-            return BlockPos.containing(this.apply(pos.getCenter()));
+            return BlockPos.containing(this.apply(Vec3.atCenterOf(pos)));
         }
 
         public BlockState apply(BlockState state) {

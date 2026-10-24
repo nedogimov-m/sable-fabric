@@ -15,7 +15,7 @@ public class TheFasterEntityCollisionContext extends EntityCollisionContext {
     private final Entity entity;
 
     public TheFasterEntityCollisionContext(final Entity entity) {
-        super(false, 0.0, ItemStack.EMPTY, atack -> false, entity);
+        super(false, false, 0.0, ItemStack.EMPTY, false, entity);
         this.entity = entity;
     }
 

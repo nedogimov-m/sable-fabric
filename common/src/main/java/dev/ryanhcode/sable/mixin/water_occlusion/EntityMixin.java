@@ -40,15 +40,6 @@ public abstract class EntityMixin {
 
     @Shadow public abstract double getZ();
 
-    @Inject(method = "updateFluidHeightAndDoFluidPushing", at = @At("HEAD"), cancellable = true)
-    public void sable$updateFluidHeightAndDoFluidPushing(final TagKey<Fluid> tagKey, final double d, final CallbackInfoReturnable<Boolean> cir) {
-        final boolean occluded = this.sable$isOccluded();
-
-        if (occluded) {
-            cir.setReturnValue(false);
-        }
-    }
-
     @Unique
     private boolean sable$isOccluded() {
         final WaterOcclusionContainer<?> container = WaterOcclusionContainer.getContainer(this.level);
@@ -70,17 +61,4 @@ public abstract class EntityMixin {
         original.call(instance, swimming);
     }
 
-    @WrapOperation(method = "updateFluidOnEyes", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;getFluidState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/material/FluidState;"))
-    public FluidState sable$occludeFluidOnEyes(final Level instance, final BlockPos pos, final Operation<FluidState> original) {
-        final FluidState originalState = original.call(instance, pos);
-
-        final WaterOcclusionContainer<?> container = WaterOcclusionContainer.getContainer(this.level);
-
-        if (!originalState.isEmpty() && container != null && container.isOccluded(new Vec3(this.getX(), this.getEyeY(), this.getZ()))) {
-            // If we're occluded, we don't want to return a fluid state
-            return Fluids.EMPTY.defaultFluidState();
-        }
-
-        return originalState;
-    }
 }

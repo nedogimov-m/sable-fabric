@@ -1,109 +1,82 @@
 package dev.ryanhcode.sable.sublevel.render.dispatcher;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.CommandEncoder;
 import dev.ryanhcode.sable.sublevel.render.fancy.FancySubLevelShaderProcessor;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.shader.block.DynamicShaderBlock;
-import foundry.veil.api.client.render.shader.block.ShaderBlock;
-import it.unimi.dsi.fastutil.objects.Object2IntArrayMap;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntMaps;
+import foundry.veil.api.client.render.gpu.GpuShaderProgram;
+import foundry.veil.api.client.render.gpu.GpuUniformBuffer;
+import foundry.veil.api.client.render.shader.ShaderPreDefinitions;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.model.geom.builders.UVPair;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
 import org.lwjgl.system.NativeResource;
 
-import java.util.Arrays;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Objects;
 
+/** Thread-safe CPU sprite table with explicit native uniform uploads and definition ownership. */
 public class SubLevelTextureCache implements NativeResource {
-
     private static final int SPRITE_SIZE = 8 * Float.BYTES;
     private static final int DEFAULT_SPRITE_COUNT = 32;
-
-    private final Object2IntMap<PackedTexture> textures = Object2IntMaps.synchronize(new Object2IntOpenHashMap<>());
-    private final Object2IntMap<PackedTexture> newTextures = new Object2IntArrayMap<>();
-
-    private DynamicShaderBlock<PackedTexture[]> textureBlock;
-
-    public SubLevelTextureCache() {
-        this.textureBlock = null;
-        VeilRenderSystem.renderer().getShaderDefinitions().set(FancySubLevelShaderProcessor.BUFFER_SIZE, Integer.toString(DEFAULT_SPRITE_COUNT));
+    private final Object2IntOpenHashMap<PackedTexture> textures = new Object2IntOpenHashMap<>();
+    private final ShaderPreDefinitions definitions;
+    private int capacity = DEFAULT_SPRITE_COUNT;
+    private ByteBuffer data;
+    private boolean dirty = true;
+    private boolean closed;
+    public SubLevelTextureCache() { this(new ShaderPreDefinitions()); }
+    /** The consuming ShaderManager must use the same definitions instance. */
+    public SubLevelTextureCache(final ShaderPreDefinitions definitions) {
+        this.definitions = Objects.requireNonNull(definitions);
+        definitions.set(FancySubLevelShaderProcessor.BUFFER_SIZE, Integer.toString(this.capacity));
     }
-
-    public int getTextureId(final BakedQuad quad) {
-        final int[] vertices = quad.getVertices();
-        final float u0 = Float.intBitsToFloat(vertices[4]);
-        final float v0 = Float.intBitsToFloat(vertices[5]);
-        final float u1 = Float.intBitsToFloat(vertices[8 + 4]);
-        final float v1 = Float.intBitsToFloat(vertices[8 + 5]);
-        final float u2 = Float.intBitsToFloat(vertices[16 + 4]);
-        final float v2 = Float.intBitsToFloat(vertices[16 + 5]);
-        final float u3 = Float.intBitsToFloat(vertices[24 + 4]);
-        final float v3 = Float.intBitsToFloat(vertices[24 + 5]);
-        return this.textures.computeIfAbsent(new PackedTexture(u0, v0, u1, v1, u2, v2, u3, v3), texture -> {
-            final int textureId = this.textures.size();
-            this.newTextures.put((PackedTexture) texture, textureId);
-            return textureId;
-        });
+    public ShaderPreDefinitions shaderDefinitions() { return this.definitions; }
+    public synchronized int getTextureId(final BakedQuad quad) {
+        if (this.closed) throw new IllegalStateException("Sprite cache is closed");
+        final var texture = new PackedTexture(UVPair.unpackU(quad.packedUV0()), UVPair.unpackV(quad.packedUV0()),
+                UVPair.unpackU(quad.packedUV1()), UVPair.unpackV(quad.packedUV1()),
+                UVPair.unpackU(quad.packedUV2()), UVPair.unpackV(quad.packedUV2()),
+                UVPair.unpackU(quad.packedUV3()), UVPair.unpackV(quad.packedUV3()));
+        if (this.textures.containsKey(texture)) return this.textures.getInt(texture);
+        final int id = this.textures.size();
+        if (id >= 4096) throw new IllegalStateException("Packed plot texture IDs have only 12 bits");
+        this.textures.put(texture, id);
+        this.dirty = true;
+        return id;
     }
-
-    public void flush() {
-        if (this.newTextures.isEmpty()) {
-            return;
+    public synchronized void flush() {
+        if (this.closed) throw new IllegalStateException("Sprite cache is closed");
+        if (!this.dirty) return;
+        if (this.textures.size() > this.capacity) {
+            this.capacity = Math.max(this.textures.size(), this.capacity + this.capacity / 2);
+            this.definitions.set(FancySubLevelShaderProcessor.BUFFER_SIZE, Integer.toString(this.capacity));
         }
-
-        if (this.textureBlock == null) {
-            this.textureBlock = ShaderBlock.dynamic(ShaderBlock.BufferBinding.UNIFORM, DEFAULT_SPRITE_COUNT * SPRITE_SIZE, (packedTextures, byteBuffer) -> {
-                for (final PackedTexture texture : packedTextures) {
-                    if (texture == null) {
-                        break;
-                    }
-                    byteBuffer.putFloat(texture.u0);
-                    byteBuffer.putFloat(texture.u1);
-                    byteBuffer.putFloat(texture.u2);
-                    byteBuffer.putFloat(texture.u3);
-                    byteBuffer.putFloat(texture.v0);
-                    byteBuffer.putFloat(texture.v1);
-                    byteBuffer.putFloat(texture.v2);
-                    byteBuffer.putFloat(texture.v3);
-                }
-            });
-            this.textureBlock.set(new PackedTexture[DEFAULT_SPRITE_COUNT]);
+        this.data = ByteBuffer.allocateDirect(this.capacity * SPRITE_SIZE).order(ByteOrder.nativeOrder());
+        for (final var entry : this.textures.object2IntEntrySet()) {
+            final var texture = entry.getKey();
+            this.data.position(entry.getIntValue() * SPRITE_SIZE);
+            this.data.putFloat(texture.u0).putFloat(texture.u1).putFloat(texture.u2).putFloat(texture.u3)
+                    .putFloat(texture.v0).putFloat(texture.v1).putFloat(texture.v2).putFloat(texture.v3);
         }
-
-        final int expectedSize = this.textures.size() + this.newTextures.size();
-        if (expectedSize * SPRITE_SIZE > this.textureBlock.getSize()) {
-            final int newSize = (int) (expectedSize * 1.5);
-            this.textureBlock.setSize(newSize * SPRITE_SIZE);
-
-            final PackedTexture[] packedTextures = Objects.requireNonNull(this.textureBlock.getValue());
-            this.textureBlock.set(Arrays.copyOf(packedTextures, newSize));
-            VeilRenderSystem.renderer().getShaderDefinitions().set(FancySubLevelShaderProcessor.BUFFER_SIZE, Long.toString(newSize));
-        }
-
-        final PackedTexture[] packedTextures = Objects.requireNonNull(this.textureBlock.getValue());
-        for (final Object2IntMap.Entry<PackedTexture> entry : this.newTextures.object2IntEntrySet()) {
-            packedTextures[entry.getIntValue()] = entry.getKey();
-        }
-        this.newTextures.clear();
-        this.textureBlock.set(packedTextures);
+        this.data.clear();
+        this.dirty = false;
     }
-
-    public void bind() {
+    public synchronized GpuUniformBuffer.Snapshot snapshot() {
         this.flush();
-        if (this.textureBlock != null) {
-            VeilRenderSystem.bind("SableSprites", this.textureBlock);
-        }
+        final var layout = GpuUniformBuffer.layoutBuilder().array("sableSprites", GpuUniformBuffer.ValueType.VEC4, 2 * this.capacity).build();
+        return new GpuUniformBuffer.Snapshot(layout, this.data);
     }
-
-    @Override
-    public void free() {
-        if (this.textureBlock != null) {
-            VeilRenderSystem.unbind(this.textureBlock);
-            this.textureBlock.free();
-            this.textureBlock = null;
-        }
+    /** Upload a copied per-frame table before beginning the consuming render pass. */
+    public GpuBufferSlice prepare(final CommandEncoder encoder) {
+        return encoder.transientMemory().uploadGpu(this.snapshot().bytes(),
+                RenderSystem.getDevice().getDeviceInfo().limits().minUniformOffsetAlignment(), GpuBuffer.USAGE_UNIFORM);
     }
-
-    private record PackedTexture(float u0, float v0, float u1, float v1, float u2, float v2, float u3, float v3) {
+    public void bind(final CommandEncoder encoder, final GpuShaderProgram shader) {
+        shader.setUniformBlock("SableSprites", this.prepare(encoder));
     }
+    @Override public synchronized void free() { this.closed = true; this.textures.clear(); this.data = null; }
+    private record PackedTexture(float u0, float v0, float u1, float v1, float u2, float v2, float u3, float v3) { }
 }

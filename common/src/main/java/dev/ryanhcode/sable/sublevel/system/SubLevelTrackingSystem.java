@@ -57,7 +57,7 @@ public class SubLevelTrackingSystem implements SubLevelObserver {
     private static long getSubLevelLong(final ServerSubLevel subLevel, final SubLevelContainer subLevels) {
         final Vector2i origin = subLevels.getOrigin();
         final ChunkPos plotPos = subLevel.getPlot().plotPos;
-        return ChunkPos.asLong(plotPos.x - origin.x, plotPos.z - origin.y);
+        return ChunkPos.pack(plotPos.x() - origin.x, plotPos.z() - origin.y);
     }
 
     private boolean shouldLoad(final Player player, final Vector3dc entityPosition) {
@@ -92,7 +92,7 @@ public class SubLevelTrackingSystem implements SubLevelObserver {
     private void collectPlayers(final Vector3d position, final Collection<UUID> tracking) {
         for (final ServerPlayer player : this.level.players()) {
             if (this.shouldLoad(player, position)) {
-                tracking.add(player.getGameProfile().getId());
+                tracking.add(player.getGameProfile().id());
             }
         }
     }
@@ -122,7 +122,7 @@ public class SubLevelTrackingSystem implements SubLevelObserver {
         player.connection.send(new ClientboundBundlePacket(packets));
 
         for (final PlotChunkHolder chunk : chunks) {
-            SubLevelPlayerChunkSender.sendChunkPoiData(this.level, chunk.getChunk());
+            SubLevelPlayerChunkSender.sendChunkPoiData(this.level, player, chunk.getChunk());
         }
     }
 
@@ -212,7 +212,7 @@ public class SubLevelTrackingSystem implements SubLevelObserver {
 
             // add players who SHOULD be tracking but aren't
             for (final ServerPlayer player : this.level.players()) {
-                final UUID uuid = player.getGameProfile().getId();
+                final UUID uuid = player.getGameProfile().id();
                 if (this.shouldLoad(player, entityPos) && !tracking.contains(uuid)) {
                     tracking.add(uuid);
                     this.sendFullSync(player, serverSubLevel, null);

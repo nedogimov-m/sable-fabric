@@ -13,13 +13,13 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.commands.data.DataAccessor;
-import net.minecraft.server.commands.data.DataCommands;
+import net.minecraft.server.commands.ArgProvider;
 
 import java.util.Locale;
 import java.util.function.Function;
 
 public class SubLevelDataAccessor implements DataAccessor {
-    public static final Function<String, DataCommands.DataProvider> PROVIDER = string -> new DataCommands.DataProvider() {
+    public static final ArgProvider.Factory<DataAccessor> PROVIDER = string -> new ArgProvider<>() {
         @Override
         public DataAccessor access(final CommandContext<CommandSourceStack> commandContext) throws CommandSyntaxException {
             return new SubLevelDataAccessor((ServerSubLevel) SubLevelArgumentType.getSingleSubLevel(commandContext, string));

@@ -12,9 +12,10 @@ import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import dev.ryanhcode.sable.sublevel.tracking_points.SubLevelTrackingPointSavedData;
 import net.minecraft.commands.arguments.EntityAnchorArgument;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import com.mojang.serialization.Codec;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -26,7 +27,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.UUID;
@@ -52,9 +52,6 @@ public abstract class EntityMixin {
 
     @Shadow
     public abstract Vec3 position();
-
-    @Shadow
-    protected abstract ListTag newDoubleList(double... ds);
 
     @Shadow
     public abstract double getX();
@@ -86,7 +83,7 @@ public abstract class EntityMixin {
 
     @Shadow public abstract Vec3 getDeltaMovement();
 
-    @WrapOperation(method = "move", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/phys/Vec3;horizontalDistance()D"))
+    @WrapOperation(method = "applyMovementEmissionAndPlaySound", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/phys/Vec3;horizontalDistance()D"))
     private double sable$fixWalkDistance(final Vec3 vec, final Operation<Double> original) {
         final Quaterniondc orientation = EntitySubLevelUtil.getCustomEntityOrientation((Entity) (Object) this, 1.0f);
         if (orientation == null) return original.call(vec);
@@ -129,31 +126,23 @@ public abstract class EntityMixin {
         entity.setPos(pos);
     }
 
-    @Redirect(method = "saveWithoutId", at = @At(value = "INVOKE", target = "Lnet/minecraft/nbt/CompoundTag;put(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)Lnet/minecraft/nbt/Tag;", ordinal = 0))
-    public Tag sable$fixPassengerSaving(final CompoundTag instance, final String string, final Tag tag) {
+    @WrapOperation(method = "saveWithoutId", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/storage/ValueOutput;store(Ljava/lang/String;Lcom/mojang/serialization/Codec;Ljava/lang/Object;)V", ordinal = 0))
+    private void sable$fixPassengerSaving(final ValueOutput output, final String key, final Codec<Object> codec,
+                                          final Object value, final Operation<Void> original) {
         if (!EntitySubLevelUtil.shouldKick((Entity) (Object) this)) {
-            return instance.put(string, tag);
+            original.call(output, key, codec, value);
+            return;
         }
-
         final SubLevel subLevel = Sable.HELPER.getContaining(this.vehicle);
-        if (subLevel != null) {
-            final Tag newPositionTag = this.newDoubleList(
-                    this.getX(),
-                    this.getY(),
-                    this.getZ()
-            );
-
-            if ((Object)this instanceof final ServerPlayer serverPlayer) {
-                final SubLevelTrackingPointSavedData data = SubLevelTrackingPointSavedData.getOrLoad((ServerLevel) this.level());
-                final UUID loginPointUUID = data.generateTrackingPoint(serverPlayer, (ServerSubLevel) subLevel);
-                if (loginPointUUID != null) {
-                    instance.putUUID("LoginPoint", loginPointUUID);
-                }
-            }
-
-            return instance.put(string, newPositionTag);
+        if (subLevel == null) {
+            original.call(output, key, codec, value);
+            return;
         }
-
-        return instance.put(string, tag);
+        if ((Object) this instanceof final ServerPlayer serverPlayer) {
+            final var data = SubLevelTrackingPointSavedData.getOrLoad((ServerLevel) this.level());
+            final UUID loginPoint = data.generateTrackingPoint(serverPlayer, (ServerSubLevel) subLevel);
+            if (loginPoint != null) output.store("LoginPoint", net.minecraft.core.UUIDUtil.CODEC, loginPoint);
+        }
+        original.call(output, key, codec, new Vec3(this.getX(), this.getY(), this.getZ()));
     }
 }

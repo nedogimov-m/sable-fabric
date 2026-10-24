@@ -29,15 +29,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Player.class)
 public abstract class PlayerMixin extends LivingEntity {
 
-    @Shadow public float bob;
-
     @Shadow @Final private Abilities abilities;
 
     @Shadow protected abstract boolean isStayingOnGroundSurface();
 
     @Shadow protected abstract boolean isAboveGround(float f);
 
-    @Shadow protected abstract boolean canFallAtLeast(double d, double e, float f);
+    @Shadow protected abstract boolean canFallAtLeast(double d, double e, double f);
 
     protected PlayerMixin(final EntityType<? extends LivingEntity> entityType, final Level level) {
         super(entityType, level);

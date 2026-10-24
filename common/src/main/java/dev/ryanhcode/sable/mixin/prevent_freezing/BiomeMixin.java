@@ -26,7 +26,7 @@ public class BiomeMixin {
             final SubLevel parent = helper.getContaining(level, blockPos);
             BlockPos projectedPos = blockPos;
             if (parent != null) { //inverse project block pos
-                projectedPos = BlockPos.containing(parent.logicalPose().transformPosition(projectedPos.getCenter()));
+                projectedPos = BlockPos.containing(parent.logicalPose().transformPosition(net.minecraft.world.phys.Vec3.atCenterOf(projectedPos)));
             }
             final BoundingBox3d bb3d = new BoundingBox3d(projectedPos);
 

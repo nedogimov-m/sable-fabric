@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Minecraft.class)
-public class MinecraftMixin {
+public abstract class MinecraftMixin {
 
     @Shadow
     @Final
@@ -37,7 +37,7 @@ public class MinecraftMixin {
 
     @Shadow
     @Nullable
-    public Entity cameraEntity;
+    public abstract Entity getCameraEntity();
 
     @Shadow
     @Nullable
@@ -48,10 +48,10 @@ public class MinecraftMixin {
     @Inject(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;setCameraType(Lnet/minecraft/client/CameraType;)V", shift = At.Shift.BEFORE))
     private void sable$preCycleCameraType(final CallbackInfo ci) {
         if (this.options.getCameraType() == SableCameraTypes.SUB_LEVEL_VIEW_UNLOCKED) {
-            final Camera camera = this.gameRenderer.getMainCamera();
+            final Camera camera = this.gameRenderer.mainCamera();
             ((CameraZoomExtension) camera).sable$setZoomAmount(0.0f);
 
-            final SubLevel subLevel = Sable.HELPER.getVehicleSubLevel(this.cameraEntity);
+            final SubLevel subLevel = Sable.HELPER.getVehicleSubLevel(this.getCameraEntity());
 
             if (subLevel != null) {
                 final Vec3 globalLookDir = subLevel.logicalPose().transformNormalInverse(this.player.getLookAngle());
@@ -63,7 +63,7 @@ public class MinecraftMixin {
     @Inject(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;setCameraType(Lnet/minecraft/client/CameraType;)V", shift = At.Shift.AFTER))
     public void sable$postCycleCameraType(final CallbackInfo ci) {
         while (this.options.getCameraType() == SableCameraTypes.SUB_LEVEL_VIEW || this.options.getCameraType() == SableCameraTypes.SUB_LEVEL_VIEW_UNLOCKED) {
-            final SubLevel subLevel = Sable.HELPER.getVehicleSubLevel(this.cameraEntity);
+            final SubLevel subLevel = Sable.HELPER.getVehicleSubLevel(this.getCameraEntity());
             if (subLevel != null) break;
 
             this.options.setCameraType(this.options.getCameraType().cycle());
@@ -72,9 +72,9 @@ public class MinecraftMixin {
         final CameraType cameraType = this.options.getCameraType();
 
         if (cameraType == SableCameraTypes.SUB_LEVEL_VIEW) {
-            this.player.displayClientMessage(Component.translatable("camera_type.sub_level_view").withColor(0xffaaaaaa), true);
+            this.player.sendOverlayMessage(Component.translatable("camera_type.sub_level_view").withColor(0xffaaaaaa));
         } else if (cameraType == SableCameraTypes.SUB_LEVEL_VIEW_UNLOCKED) {
-            final SubLevel subLevel = Sable.HELPER.getVehicleSubLevel(this.cameraEntity);
+            final SubLevel subLevel = Sable.HELPER.getVehicleSubLevel(this.getCameraEntity());
 
             // View view orientation
             if (subLevel != null) {
@@ -82,7 +82,7 @@ public class MinecraftMixin {
                 this.player.lookAt(EntityAnchorArgument.Anchor.FEET, this.player.position().add(globalLookDir));
             }
 
-            this.player.displayClientMessage(Component.translatable("camera_type.sub_level_view_unlocked").withColor(0xffaaaaaa), true);
+            this.player.sendOverlayMessage(Component.translatable("camera_type.sub_level_view_unlocked").withColor(0xffaaaaaa));
         }
     }
 }

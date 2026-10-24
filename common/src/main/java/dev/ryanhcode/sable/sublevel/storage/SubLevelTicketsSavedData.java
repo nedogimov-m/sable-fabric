@@ -2,6 +2,7 @@ package dev.ryanhcode.sable.sublevel.storage;
 
 import com.mojang.serialization.Codec;
 import dev.ryanhcode.sable.Sable;
+import dev.ryanhcode.sable.sublevel.storage.SableSavedDataStorage;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.ticket.SubLevelLoadingTicket;
@@ -19,7 +20,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -40,13 +41,9 @@ public class SubLevelTicketsSavedData extends SavedData {
     }
 
     public static SubLevelTicketsSavedData getOrLoad(final ServerLevel level) {
-        return level.getChunkSource().getDataStorage().computeIfAbsent(
-                new Factory<>(
-                        () -> new SubLevelTicketsSavedData(level),
-                        (tag, provider) -> SubLevelTicketsSavedData.load(level, tag),
-                        DataFixTypes.LEVEL
-                ),
-                SubLevelTicketsSavedData.FILE_ID);
+        return SableSavedDataStorage.getOrLoad(level.getDataStorage(), level.getDataStorage().dataFolder,
+                FILE_ID, () -> new SubLevelTicketsSavedData(level), tag -> load(level, tag),
+                data -> data.save(new CompoundTag()), DataFixTypes.LEVEL);
     }
 
     private static SubLevelTicketsSavedData load(final ServerLevel level, final CompoundTag tag) {
@@ -55,17 +52,17 @@ public class SubLevelTicketsSavedData extends SavedData {
         if (container == null) return data;
 
         final Object2ObjectMap<UUID, SubLevelTicketInfo> newTickets = new Object2ObjectOpenHashMap<>();
-        final ListTag ticketInfos = tag.getList("tickets", Tag.TAG_COMPOUND);
+        final ListTag ticketInfos = tag.getListOrEmpty("tickets");
 
         for (int i = 0; i < ticketInfos.size(); i++) {
-            final CompoundTag infoTag = ticketInfos.getCompound(i);
-            final UUID subLevelId = infoTag.getUUID("uuid");
+            final CompoundTag infoTag = ticketInfos.getCompoundOrEmpty(i);
+            final UUID subLevelId = infoTag.read("uuid", net.minecraft.core.UUIDUtil.CODEC).orElseThrow();
 
-            final ListTag entriesTag = infoTag.getList("entries", Tag.TAG_COMPOUND);
+            final ListTag entriesTag = infoTag.getListOrEmpty("entries");
             final ObjectSet<SubLevelLoadingTicket<?>> tickets = new ObjectArraySet<>();
 
             for (int j = 0; j < entriesTag.size(); j++) {
-                final CompoundTag entryTag = entriesTag.getCompound(j);
+                final CompoundTag entryTag = entriesTag.getCompoundOrEmpty(j);
                 final SubLevelLoadingTicket<?> ticket = deserializeTicket(subLevelId, entryTag);
 
                 if (ticket != null) {
@@ -88,7 +85,7 @@ public class SubLevelTicketsSavedData extends SavedData {
     }
 
     private static <T> SubLevelLoadingTicket<T> deserializeTicket(final UUID subLevelId, final CompoundTag tag) {
-        final ResourceLocation typeName = ResourceLocation.parse(tag.getString("type"));
+        final Identifier typeName = Identifier.parse(tag.getStringOr("type", ""));
         @SuppressWarnings("unchecked") final SubLevelLoadingTicketType<T> type = (SubLevelLoadingTicketType<T>) SubLevelLoadingTicketType.byName(typeName);
 
         if (type == null) {
@@ -123,8 +120,7 @@ public class SubLevelTicketsSavedData extends SavedData {
                 .orElse(null);
     }
 
-    @Override
-    public @NotNull CompoundTag save(final CompoundTag compoundTag, final HolderLookup.Provider provider) {
+    public @NotNull CompoundTag save(final CompoundTag compoundTag) {
         final ServerSubLevelContainer container = SubLevelContainer.getContainer(this.level);
         assert container != null : "Sub-level container is null";
 
@@ -147,7 +143,7 @@ public class SubLevelTicketsSavedData extends SavedData {
             }
 
             final CompoundTag infoTag = new CompoundTag();
-            infoTag.putUUID("uuid", uuid);
+            infoTag.store("uuid", net.minecraft.core.UUIDUtil.CODEC, uuid);
             final ListTag entriesTag = new ListTag();
 
             for (final SubLevelLoadingTicket<?> ticket : info.tickets()) {

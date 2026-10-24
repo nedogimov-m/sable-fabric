@@ -24,7 +24,7 @@ import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.*;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Unit;
 import org.joml.Quaterniondc;
@@ -37,7 +37,7 @@ public class SableCommand {
 
     public static void register(final CommandDispatcher<CommandSourceStack> dispatcher, final CommandBuildContext buildContext) {
         final LiteralArgumentBuilder<CommandSourceStack> sableBuilder = Commands.literal("sable")
-                .requires(commandSourceStack -> commandSourceStack.hasPermission(2));
+                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS));
 
         SablePhysicsCommands.register(sableBuilder, buildContext);
         SableSpawnCommands.register(sableBuilder, buildContext);
@@ -131,7 +131,7 @@ public class SableCommand {
             ticketCount += entry.getValue().size();
         }
 
-        final Component dimension = Component.translationArg(ctx.getSource().getLevel().dimension().location());
+        final Component dimension = Component.translationArg(ctx.getSource().getLevel().dimension().identifier());
 
         if (ticketCount == 0) {
             source.sendFailure(Component.translatable("commands.sable.forceload.query.none", dimension));
@@ -148,8 +148,8 @@ public class SableCommand {
             source.sendSuccess(() -> {
                 final String uuid = subLevel.getUniqueId().toString();
                 final MutableComponent component = Component.translatable("commands.sable.forceload.sub_level_name", Component.literal(subLevel.getName() != null ? subLevel.getName() : uuid));
-                component.setStyle(Style.EMPTY.withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, uuid))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(uuid)))
+                component.setStyle(Style.EMPTY.withClickEvent(new ClickEvent.CopyToClipboard( uuid))
+                        .withHoverEvent(new HoverEvent.ShowText( Component.literal(uuid)))
                         .withColor(ChatFormatting.GRAY));
                 return component;
             }, true);
@@ -212,19 +212,19 @@ public class SableCommand {
             source.sendSuccess(() -> {
                 final String uuid = subLevel.getUniqueId().toString();
                 final MutableComponent component = Component.translatable("commands.sable.info.name", Component.literal(subLevel.getName() != null ? subLevel.getName() : uuid));
-                component.setStyle(Style.EMPTY.withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, uuid))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(uuid)))
+                component.setStyle(Style.EMPTY.withClickEvent(new ClickEvent.CopyToClipboard( uuid))
+                        .withHoverEvent(new HoverEvent.ShowText( Component.literal(uuid)))
                         .withColor(ChatFormatting.GRAY));
                 return component;
             }, false);
             source.sendSuccess(() -> {
                 final Vector3dc pos = pose.position();
                 final GlobalSavedSubLevelPointer pointer = subLevel.getLastSerializationPointer();
-                final ResourceLocation dimension = subLevel.getLevel().dimension().location();
+                final Identifier dimension = subLevel.getLevel().dimension().identifier();
                 final Component fileId = Component.translatable("commands.sable.info.name.tooltip", pointer != null ? pointer.toString() : "None yet");
                 final MutableComponent component = Component.translatable("commands.sable.info.position", pos.x(), pos.y(), pos.z());
-                component.setStyle(Style.EMPTY.withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, new Formatter().format(Locale.ROOT, "/execute in %s run tp @s %.2f %.2f %.2f", dimension, pos.x(), pos.y(), pos.z()).toString()))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, fileId))
+                component.setStyle(Style.EMPTY.withClickEvent(new ClickEvent.SuggestCommand( new Formatter().format(Locale.ROOT, "/execute in %s run tp @s %.2f %.2f %.2f", dimension, pos.x(), pos.y(), pos.z()).toString()))
+                        .withHoverEvent(new HoverEvent.ShowText( fileId))
                         .withColor(ChatFormatting.GRAY));
                 return component;
             }, false);

@@ -2,6 +2,7 @@ package dev.ryanhcode.sable.api.sublevel;
 
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.SableConfig;
+import dev.ryanhcode.sable.mixin.level_accelerator.ServerChunkCacheAccessor;
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.api.sublevel.ticket.SubLevelLoadingTicket;
 import dev.ryanhcode.sable.api.sublevel.ticket.SubLevelLoadingTicketType;
@@ -138,6 +139,8 @@ public class ServerSubLevelContainer extends SubLevelContainer {
         }
 
         super.removeSubLevel(x, z, reason);
+        // A retired plot chunk must not remain in vanilla's most-recent chunk cache.
+        ((ServerChunkCacheAccessor) this.getLevel().getChunkSource()).sable$clearChunkCache();
 
         if (reason == SubLevelRemovalReason.REMOVED) {
             final ServerLevel level = this.getLevel();

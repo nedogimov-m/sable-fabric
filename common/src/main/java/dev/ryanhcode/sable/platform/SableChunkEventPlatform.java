@@ -13,4 +13,8 @@ public interface SableChunkEventPlatform {
 
     void onPlotChunkLoaded(final LevelChunk chunk);
 
+    default void onPlotChunkLoaded(final LevelChunk chunk, final boolean newlyGenerated) {
+        this.onPlotChunkLoaded(chunk);
+    }
+
 }

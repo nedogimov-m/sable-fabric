@@ -19,7 +19,7 @@ public class ClientPacketListenerMixin {
     private void sable$queueLightData(final ClientLevel instance, final Runnable task, final Operation<Void> original, @Local(argsOnly = true) final ClientboundLevelChunkWithLightPacket packet) {
         final ClientSubLevelContainer container = SubLevelContainer.getContainer(instance);
 
-        if (container.inBounds(packet.getX(), packet.getZ())) {
+        if (container != null && container.inBounds(packet.x(), packet.z())) {
             task.run();
             instance.getLightEngine().runLightUpdates();
             return;

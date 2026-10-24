@@ -33,10 +33,10 @@ public abstract class ServerLevelMixin extends Level {
             final boolean isDebug,
             final long biomeZoomSeed,
             final int maxChainedNeighborUpdates) {
-        super(levelData, dimension, registryAccess, dimensionTypeRegistration, profiler, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
+        super(levelData, dimension, registryAccess, dimensionTypeRegistration, isClientSide, isDebug, biomeZoomSeed, maxChainedNeighborUpdates);
     }
 
-    @WrapOperation(method = "tickChunk", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;isThundering()Z"))
+    @WrapOperation(method = "tickThunder", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;isThundering()Z"))
     private boolean sable$preventLightningInPlot(final ServerLevel instance, final Operation<Boolean> original, @Local(argsOnly = true) final LevelChunk chunk) {
         final SubLevelContainer plotContainer = SubLevelContainer.getContainer(this);
         if (plotContainer != null && plotContainer.inBounds(chunk.getPos())) {

@@ -6,6 +6,7 @@ import dev.ryanhcode.sable.sublevel.SubLevel;
 import dev.ryanhcode.sable.sublevel.storage.SubLevelRemovalReason;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.TestCommand;
+import net.minecraft.commands.CommandSourceStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class TestCommandMixin {
 
     @Inject(method = "resetGameTestInfo", at = @At("HEAD"))
-    private static void resetGameTestInfo(final GameTestInfo gameTestInfo, final CallbackInfoReturnable<Integer> cir) {
+    private static void resetGameTestInfo(final CommandSourceStack source, final GameTestInfo gameTestInfo, final CallbackInfoReturnable<Integer> cir) {
         final SubLevelContainer container = SubLevelContainer.getContainer(gameTestInfo.getLevel());
         if (container != null) {
             for (final SubLevel subLevel : container.queryIntersecting(new BoundingBox3d(gameTestInfo.getStructureBounds()))) {

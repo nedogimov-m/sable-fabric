@@ -102,12 +102,13 @@ public abstract class ClientChunkCacheMixin implements DebugChunkProviderAttachm
             } else {
                 levelChunk.replaceBiomes(friendlyByteBuf);
             }
+            ci.cancel();
         }
     }
 
     @Inject(method = "replaceWithPacketData", at = @At("HEAD"), cancellable = true)
-    private void replaceWithPacketData(final int x, final int z, final FriendlyByteBuf friendlyByteBuf, final CompoundTag compoundTag,
-                                       final Consumer<ClientboundLevelChunkPacketData.BlockEntityTagOutput> consumer, final CallbackInfoReturnable<LevelChunk> cir) {
+    private void replaceWithPacketData(final int x, final int z, final ClientboundLevelChunkPacketData data,
+                                       final CallbackInfoReturnable<LevelChunk> cir) {
         final SubLevelContainer container = this.sable$getPlotContainer();
 
         if (container.inBounds(x, z)) {
@@ -119,10 +120,10 @@ public abstract class ClientChunkCacheMixin implements DebugChunkProviderAttachm
                     this.level.unload(levelChunk);
                 }
                 levelChunk = new LevelChunk(this.level, chunkPos);
-                levelChunk.replaceWithPacketData(friendlyByteBuf, compoundTag, consumer);
+                levelChunk.replaceWithPacketData(x, z, data);
                 container.newPopulatedChunk(chunkPos, levelChunk);
             } else {
-                levelChunk.replaceWithPacketData(friendlyByteBuf, compoundTag, consumer);
+                levelChunk.replaceWithPacketData(x, z, data);
             }
 
             this.level.onChunkLoaded(chunkPos);

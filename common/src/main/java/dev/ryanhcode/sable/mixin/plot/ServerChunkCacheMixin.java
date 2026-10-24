@@ -4,10 +4,8 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.mojang.datafixers.DataFixer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.sublevel.plot.PlotChunkHolder;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.*;
-import net.minecraft.server.level.progress.ChunkProgressListener;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.chunk.*;
@@ -43,10 +41,9 @@ public class ServerChunkCacheMixin {
     private EmptyLevelChunk sable$emptyChunk;
 
     @Inject(method = "<init>", at = @At("RETURN"))
-    public void init(final ServerLevel serverLevel, final LevelStorageSource.LevelStorageAccess levelStorageAccess, final DataFixer dataFixer, final StructureTemplateManager structureTemplateManager,
-                     final Executor executor, final ChunkGenerator chunkGenerator, final int i, final int j, final boolean bl, final ChunkProgressListener chunkProgressListener,
-                     final ChunkStatusUpdateListener chunkStatusUpdateListener, final Supplier supplier, final CallbackInfo ci) {
-        this.sable$emptyChunk = new EmptyLevelChunk(serverLevel, new ChunkPos(0, 0), serverLevel.registryAccess().registryOrThrow(Registries.BIOME).getHolderOrThrow(Biomes.PLAINS));
+    public void init(final CallbackInfo ci) {
+        this.sable$emptyChunk = new EmptyLevelChunk(this.level, ChunkPos.ZERO,
+                this.level.registryAccess().lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.PLAINS));
     }
 
     @Unique
@@ -110,7 +107,7 @@ public class ServerChunkCacheMixin {
     private boolean isPositionTicking(final boolean original, final long chunkPos) {
         final SubLevelContainer container = this.sable$getPlotContainer();
         if (container.inBounds(ChunkPos.getX(chunkPos), ChunkPos.getZ(chunkPos))) {
-            final LevelChunk chunk = container.getChunk(new ChunkPos(chunkPos));
+            final LevelChunk chunk = container.getChunk(ChunkPos.unpack(chunkPos));
             return chunk != null;
         }
 
@@ -121,7 +118,7 @@ public class ServerChunkCacheMixin {
     private void getFullChunk(final long pos, final Consumer<LevelChunk> consumer, final CallbackInfo ci) {
         final SubLevelContainer container = this.sable$getPlotContainer();
         if (container.inBounds(ChunkPos.getX(pos), ChunkPos.getZ(pos))) {
-            final ChunkPos chunkPos = new ChunkPos(pos);
+            final ChunkPos chunkPos = ChunkPos.unpack(pos);
             final LevelChunk chunk = container.getChunk(chunkPos);
 
             if (chunk != null) {
@@ -132,23 +129,8 @@ public class ServerChunkCacheMixin {
         }
     }
 
-    @Inject(method = "blockChanged", at = @At("HEAD"), cancellable = true)
-    private void blockChanged(final BlockPos blockPos, final CallbackInfo ci) {
-        final SubLevelContainer container = this.sable$getPlotContainer();
-
-        final ChunkPos pos = new ChunkPos(blockPos);
-        if (container.inBounds(pos)) {
-            final PlotChunkHolder holder = container.getChunkHolder(pos);
-
-            if (holder == null) {
-                throw new UnsupportedOperationException("Cannot change blocks in nonexistent plot holder");
-            }
-
-            holder.blockChanged(blockPos);
-            ci.cancel();
-        }
-    }
-
+    // Keep vanilla blockChanged: it queues dirty holders for broadcast in 26.3.
+    // This lookup routes plot changes through that same queue and tracker list.
     @Inject(method = "getVisibleChunkIfPresent", at = @At("HEAD"), cancellable = true)
     private void getVisibleChunkIfPresent(final long l, final CallbackInfoReturnable<ChunkHolder> cir) {
         final int x = ChunkPos.getX(l);
@@ -163,8 +145,8 @@ public class ServerChunkCacheMixin {
         }
     }
 
-    @Inject(method = "addRegionTicket", at = @At("HEAD"), cancellable = true)
-    private <T> void addRegionTicket(final TicketType<T> type, final ChunkPos pos, final int distance, final T value, final CallbackInfo ci) {
+    @Inject(method = "addTicketWithRadius", at = @At("HEAD"), cancellable = true)
+    private void addRegionTicket(final TicketType type, final ChunkPos pos, final int distance, final CallbackInfo ci) {
         final SubLevelContainer container = this.sable$getPlotContainer();
         if (container.inBounds(pos)) {
             ci.cancel();

@@ -1,25 +1,121 @@
 plugins {
-    // see https://fabricmc.net/develop/ for new versions
-    id 'net.fabricmc.fabric-loom-remap' version '1.16-SNAPSHOT' apply false
-    // see https://projects.neoforged.net/neoforged/moddevgradle for new versions
-    id 'net.neoforged.moddev' version '2.0.140' apply false
-    // see // https://github.com/modmuss50/mod-publish-plugin for new versions
-    id "me.modmuss50.mod-publish-plugin" version "1.1.0" apply false
-
-    id 'com.diffplug.spotless' version '7.2.1'
-    id "checkstyle"
+    id 'net.fabricmc.fabric-loom' version '1.18.4'
+    id 'maven-publish'
 }
 
-allprojects {
-    apply plugin: 'com.diffplug.spotless'
+group = 'dev.ryanhcode.sable'
+version = project.mod_version
+base.archivesName = 'sable-fabric-26.3'
 
-    spotless {
-        format 'misc', {
-            target '*.gradle', '.gitattributes', '.gitignore'
+repositories {
+    mavenCentral()
+    maven { url = '../veil/local-maven' }
+    maven { url = 'https://maven.blamejared.com' }
+    maven { url = 'https://raw.githubusercontent.com/Fuzss/modresources/main/maven/' }
+    maven { url = 'https://raw.githubusercontent.com/mortuusars/resources/main/maven/' }
+    maven { url = 'https://api.modrinth.com/maven' }
+    maven { url = 'https://cursemaven.com' }
+    maven { url = 'https://maven.caffeinemc.net/releases' }
+    maven { url = 'https://maven.squiddev.cc'; content { includeGroup 'cc.tweaked' } }
+}
 
-            trimTrailingWhitespace()
-            leadingTabsToSpaces()
-            endWithNewline()
+// Keep every upstream common, Fabric, and Rapier Java source in the real mod.
+// Fabric and the bundled Rapier provider use the unobfuscated Minecraft API.
+sourceSets.main {
+    java.setSrcDirs(['common/src/main/java', 'fabric/src/main/java', 'sable_rapier/src/main/java'])
+    resources.setSrcDirs(['common/src/main/resources', 'fabric/src/main/resources'])
+}
+sourceSets.test.java.setSrcDirs(['src/test/java', 'sable_rapier/src/test/java'])
+
+loom {
+    accessWidenerPath = file('common/src/main/resources/sable.accesswidener')
+}
+
+dependencies {
+    compileOnly 'io.github.spair:imgui-java-binding:1.92.7.1'
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    include(api('dev.ryanhcode.sable-companion:sable-companion-fabric-26.3:1.6.0-port.1+mc26.3'))
+    include(api('foundry.veil:veil-fabric:4.3.2-port.1+mc26.3'))
+    include(implementation('org.apache.maven:maven-artifact:3.9.11'))
+    include(implementation('at.yawk.lz4:lz4-java:1.11.0'))
+
+    // Original optional integration APIs remain compile-only until their own 26.3 ports exist.
+    // Keeping these sources enabled makes API migration failures visible during compilation.
+    compileOnly('maven.modrinth:sodium:mc26.3-0.9.2-fabric') { transitive = false }
+    compileOnly('maven.modrinth:iris:1.11.7+26.3-fabric') { transitive = false }
+    compileOnly 'maven.modrinth:distanthorizons:2.2.1-a-1.21.1'
+    compileOnly 'maven.modrinth:sodium-extras:fabric-1.21.1-1.0.8'
+    compileOnly files(layout.buildDirectory.file('compile-api/shouldersurfing-api.jar'))
+    compileOnly files(layout.buildDirectory.file('compile-api/exposure-api.jar'))
+    compileOnly 'maven.modrinth:moonlight:1.21-2.29.19-fabric'
+    compileOnly('maven.modrinth:jade:15.10.6+fabric') { transitive = false }
+    compileOnly files(layout.buildDirectory.file('compile-api/computercraft-api.jar'))
+
+    testImplementation platform('org.junit:junit-bom:6.0.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
+}
+
+tasks.register('prepareFabricCompileApis', Exec) {
+    inputs.files('tools/prepare_fabric_compile_apis.py', 'tools/fabric-compile-apis.json')
+    outputs.files(layout.buildDirectory.file('compile-api/computercraft-api.jar'), layout.buildDirectory.file('compile-api/exposure-api.jar'), layout.buildDirectory.file('compile-api/shouldersurfing-api.jar'))
+    commandLine 'python3', file('tools/prepare_fabric_compile_apis.py').absolutePath
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn('prepareFabricCompileApis')
+    options.release = 25
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xmaxerrs', '300']
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    from('sable_rapier/src/main/resources') {
+        exclude 'fabric.mod.json'
+        // Both providers live in this one production mod and are declared in
+        // the shared service file; the native Rapier binaries still copy here.
+        exclude 'META-INF/services/dev.ryanhcode.sable.api.physics.PhysicsPipelineProvider'
+    }
+    def properties = [
+        version: project.version, mod_id: 'sable', mod_name: 'Sable', mod_author: 'RyanHCode',
+        description: project.description ?: 'Interactive moving block structures with physics.',
+        license: 'PolyForm Shield License 1.0.0', issues: 'https://github.com/ryanhcode/sable/issues',
+        java_version: '25', minecraft_version: minecraft_version,
+        fabric_loader_version: fabric_loader_version, fabric_version: fabric_version,
+        veil_version: '4.3.2-port.1+mc26.3', sodium_version: '0.9.2+mc26.3',
+        sable_companion_version: '1.6.0-port.1+mc26.3'
+    ]
+    inputs.properties(properties)
+    filesMatching(['fabric.mod.json', '*.mixins.json', 'pack.mcmeta']) { expand properties }
+    // Rapier is now part of this same mod, avoiding a duplicate fabric.mod.json.
+
+}
+
+jar {
+    from('LICENSE.md')
+}
+
+sourcesJar {
+    from('LICENSE.md')
+}
+
+test {
+    useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = base.archivesName.get()
+            from components.java
         }
     }
 }

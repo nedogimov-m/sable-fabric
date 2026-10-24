@@ -13,6 +13,7 @@ import io.netty.channel.epoll.EpollDatagramChannel;
 import io.netty.channel.local.LocalChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import net.minecraft.network.Connection;
+import net.minecraft.server.network.EventLoopGroupHolder;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.protocol.PacketFlow;
 import org.spongepowered.asm.mixin.Mixin;
@@ -58,7 +59,7 @@ public abstract class ConnectionMixin implements ConnectionExtension {
     }
 
     @Inject(method = "connect", at = @At("TAIL"))
-    private static void sable$connect(final InetSocketAddress inetSocketAddress, final boolean bl, final Connection connection, final CallbackInfoReturnable<ChannelFuture> cir) {
+    private static void sable$connect(final InetSocketAddress inetSocketAddress, final EventLoopGroupHolder transport, final Connection connection, final CallbackInfoReturnable<ChannelFuture> cir) {
         final boolean useNativeTransport = SableClient.useNativeTransport();
 
         final Class<? extends Channel> channelClass;
@@ -66,10 +67,10 @@ public abstract class ConnectionMixin implements ConnectionExtension {
 
         if (Epoll.isAvailable() && useNativeTransport) {
             channelClass = EpollDatagramChannel.class;
-            eventLoopGroup = Connection.NETWORK_EPOLL_WORKER_GROUP.get();
+            eventLoopGroup = EventLoopGroupHolder.remote(true).eventLoopGroup();
         } else {
             channelClass = NioDatagramChannel.class;
-            eventLoopGroup = Connection.NETWORK_WORKER_GROUP.get();
+            eventLoopGroup = EventLoopGroupHolder.remote(false).eventLoopGroup();
         }
 
         Sable.LOGGER.info("Starting remote client UDP channel future");
@@ -92,7 +93,7 @@ public abstract class ConnectionMixin implements ConnectionExtension {
     private static void sable$connectToLocalServer(final SocketAddress socketAddress, final CallbackInfoReturnable<Connection> cir, @Local final Connection connection) {
         Sable.LOGGER.info("Starting local client UDP channel future");
 
-        final ChannelFuture channelFuture = new Bootstrap().group(Connection.LOCAL_WORKER_GROUP.get()).handler(new ChannelInitializer<>() {
+        final ChannelFuture channelFuture = new Bootstrap().group(EventLoopGroupHolder.local().eventLoopGroup()).handler(new ChannelInitializer<>() {
             @Override
             protected void initChannel(final Channel channel) {
                 SableUDPPacket.configureInMemoryPipeline(channel.pipeline(), PacketFlow.CLIENTBOUND);

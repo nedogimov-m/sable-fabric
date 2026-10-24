@@ -6,8 +6,9 @@ import dev.ryanhcode.sable.sublevel.render.SubLevelRenderData;
 import dev.ryanhcode.sable.sublevel.render.SubLevelRenderer;
 import foundry.veil.api.client.render.CullFrustum;
 import net.minecraft.client.Camera;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import dev.ryanhcode.sable.sublevel.render.vanilla.PlotSectionMesh;
+import java.util.List;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -59,47 +60,8 @@ public interface SubLevelRenderDispatcher extends NativeResource, ResourceManage
         }
     }
 
-    /**
-     * Updates the current culling state for all sub-levels.
-     *
-     * @param sublevels   The sub-levels to update
-     * @param cameraX     The x position of the camera
-     * @param cameraY     The y position of the camera
-     * @param cameraZ     The z position of the camera
-     * @param cullFrustum The current frustum used for culling
-     * @param isSpectator Whether the player is in spectator mode
-     */
-    void updateCulling(final Iterable<ClientSubLevel> sublevels, final double cameraX, final double cameraY, final double cameraZ, final CullFrustum cullFrustum, boolean isSpectator);
-
-    /**
-     * Renders all sub-levels into the specified section layer.
-     *
-     * @param sublevels    The sub-levels to render
-     * @param renderType   The render type being rendered
-     * @param shader       The currently bound shader
-     * @param cameraX      The x position of the camera
-     * @param cameraY      The y position of the camera
-     * @param cameraZ      The z position of the camera
-     * @param modelView    The modelview matrix
-     * @param projection   The projection matrix
-     * @param partialTicks The percentage from last tick to this tick
-     */
-    void renderSectionLayer(final Iterable<ClientSubLevel> sublevels, final RenderType renderType, final ShaderInstance shader, final double cameraX, final double cameraY, final double cameraZ, final Matrix4f modelView, final Matrix4f projection, final float partialTicks);
-
-    /**
-     * Renders all sub-levels after the section layers have been rendered.
-     *
-     * @param sublevels    The sub-levels to render
-     * @param cameraX      The x position of the camera
-     * @param cameraY      The y position of the camera
-     * @param cameraZ      The z position of the camera
-     * @param modelView    The modelview matrix
-     * @param projection   The projection matrix
-     * @param partialTicks The percentage from last tick to this tick
-     */
-    void renderAfterSections(final Iterable<ClientSubLevel> sublevels, final double cameraX, double cameraY, double cameraZ, final Matrix4f modelView, final Matrix4f projection, final float partialTicks);
-
-    void renderBlockEntities(final Iterable<ClientSubLevel> sublevels, final BlockEntityRenderer blockEntityRenderer, final double cameraX, double cameraY, double cameraZ, final float partialTick);
+    /** Extracts immutable native plot mesh inputs on the world thread. */
+    List<PlotSectionMesh.Snapshot> extractTerrain(Iterable<ClientSubLevel> sublevels, Camera camera, float partialTick);
 
     void addDebugInfo(final Consumer<String> consumer);
 

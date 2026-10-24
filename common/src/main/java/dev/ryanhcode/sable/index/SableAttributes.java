@@ -3,7 +3,7 @@ package dev.ryanhcode.sable.index;
 import com.google.common.collect.ImmutableMap;
 import net.minecraft.core.Holder;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.*;
 
@@ -26,7 +26,7 @@ public class SableAttributes {
 
     public static void register() {
 
-        final AttributeSupplier supplier = DefaultAttributes.getSupplier(EntityType.PLAYER);
+        final AttributeSupplier supplier = DefaultAttributes.getSupplier(EntityTypes.PLAYER);
 
         final Map<Holder<Attribute>, AttributeInstance> additionalInstances = AttributeSupplier.builder().add(PUNCH_STRENGTH).add(PUNCH_COOLDOWN).build().instances;
 

@@ -1,10 +1,12 @@
 package dev.ryanhcode.sable.mixin.plot;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.mixinterface.plot.SubLevelContainerHolder;
 import dev.ryanhcode.sable.platform.SablePlatform;
+import dev.ryanhcode.sable.platform.SableEventPublishPlatform;
 import dev.ryanhcode.sable.sublevel.storage.SubLevelOccupancySavedData;
 import dev.ryanhcode.sable.sublevel.storage.SubLevelTicketsSavedData;
 import dev.ryanhcode.sable.sublevel.storage.holding.SubLevelHoldingChunkMap;
@@ -37,7 +39,7 @@ import java.util.function.Supplier;
 public abstract class ServerLevelMixin extends Level {
 
     protected ServerLevelMixin(final WritableLevelData writableLevelData, final ResourceKey<Level> resourceKey, final RegistryAccess registryAccess, final Holder<DimensionType> holder, final Supplier<ProfilerFiller> supplier, final boolean bl, final boolean bl2, final long l, final int i) {
-        super(writableLevelData, resourceKey, registryAccess, holder, supplier, bl, bl2, l, i);
+        super(writableLevelData, resourceKey, registryAccess, holder, bl, bl2, l, i);
     }
 
     @Shadow
@@ -48,13 +50,20 @@ public abstract class ServerLevelMixin extends Level {
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void sable$init(final CallbackInfo ci) {
+        final ServerSubLevelContainer container = SubLevelContainer.getContainer((ServerLevel) (Object) this);
+        if (container != null) {
+            // Native26.3 sea level uses the completed chunk source. The early
+            // container exists during construction; physics starts at its end.
+            Sable.defaultSubLevelContainerInitializer(this, container);
+            SableEventPublishPlatform.INSTANCE.onSubLevelContainerReady(this, container);
+        }
+
         // Load occupancy and ticket data if it isn't already
         if (!SablePlatform.INSTANCE.isWrappedLevel((ServerLevel) (Object) this)) {
             SubLevelOccupancySavedData.getOrLoad((ServerLevel) (Object) this);
             SubLevelTicketsSavedData.getOrLoad((ServerLevel) (Object) this);
         }
 
-        final ServerSubLevelContainer container = (ServerSubLevelContainer) SubLevelContainer.getContainer(this);
         if (container != null) {
             container.initialize();
         }
@@ -63,7 +72,7 @@ public abstract class ServerLevelMixin extends Level {
     /**
      * high up injection so we're before normal chunk saving
      */
-    @Inject(method = "save", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;saveLevelData()V", shift = At.Shift.BEFORE))
+    @Inject(method = "save", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;saveLevelData(Z)V", shift = At.Shift.BEFORE))
     public void sable$saveSubLevels(final ProgressListener progressListener, final boolean bl, final boolean bl2, final CallbackInfo ci) {
         final ServerLevel self = (ServerLevel) (Object) this;
         if (progressListener != null) {
@@ -95,14 +104,14 @@ public abstract class ServerLevelMixin extends Level {
         final SubLevelContainer plotContainer = SubLevelContainer.getContainer((ServerLevel) (Object) this);
         assert plotContainer != null;
 
-        if (plotContainer.getPlot(new ChunkPos(chunkPos)) != null) {
+        if (plotContainer.getPlot(ChunkPos.unpack(chunkPos)) != null) {
             return true;
         }
 
         return original;
     }
 
-    @ModifyReturnValue(method = "isNaturalSpawningAllowed(Lnet/minecraft/world/level/ChunkPos;)Z", at = @At("RETURN"))
+    @ModifyReturnValue(method = "canSpawnEntitiesInChunk(Lnet/minecraft/world/level/ChunkPos;)Z", at = @At("RETURN"))
     private boolean sable$isNaturalSpawningAllowed(boolean original, final ChunkPos chunkPos) {
         final SubLevelContainer plotContainer = SubLevelContainer.getContainer((ServerLevel) (Object) this);
         assert plotContainer != null;

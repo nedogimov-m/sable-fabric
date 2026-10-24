@@ -35,7 +35,7 @@ public abstract class OptionsScreenMixin extends Screen {
         final LinearLayout layout = LinearLayout.vertical();
 
         final Button sableButton = Button.builder(SubLevelSettingsScreen.TITLE, (event) -> {
-            this.minecraft.setScreen(new SubLevelSettingsScreen(this, this.options, SubLevelSettingsScreen.TITLE));
+            this.minecraft.setScreenAndShow(new SubLevelSettingsScreen(this, this.options, SubLevelSettingsScreen.TITLE));
         }).pos(0, 30).size(150, 20).build();
 
         layout.addChild(original);

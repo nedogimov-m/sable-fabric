@@ -19,16 +19,16 @@ public class MouseHandlerMixin {
 
     @Shadow @Final private Minecraft minecraft;
 
-    @WrapOperation(method = "onScroll", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Inventory;swapPaint(D)V"))
-    private void sable$onScroll(final Inventory instance, final double d, final Operation<Void> original) {
+    @WrapOperation(method = "onScroll", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/ScrollWheelHandler;getNextScrollWheelSelection(DII)I"))
+    private int sable$onScroll(final double d, final int selectedSlot, final int selectionSize, final Operation<Integer> original) {
         final CameraType cameraType = this.minecraft.options.getCameraType();
         if (cameraType == SableCameraTypes.SUB_LEVEL_VIEW || cameraType == SableCameraTypes.SUB_LEVEL_VIEW_UNLOCKED) {
-            final CameraZoomExtension extension = ((CameraZoomExtension) this.minecraft.gameRenderer.getMainCamera());
+            final CameraZoomExtension extension = ((CameraZoomExtension) this.minecraft.gameRenderer.mainCamera());
 
             extension.sable$setZoomAmount((float) (extension.sable$getZoomAmount() - d * SableClientConfig.ZOOM_SENSITIVITY.get()));
-            return;
+            return selectedSlot;
         }
 
-        original.call(instance, d);
+        return original.call(d, selectedSlot, selectionSize);
     }
 }

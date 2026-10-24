@@ -8,7 +8,8 @@ import dev.ryanhcode.sable.sublevel.ClientSubLevel;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import dev.ryanhcode.sable.sublevel.plot.LevelPlot;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.util.Mth;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -35,12 +36,15 @@ public abstract class EntityRendererMixin {
     @Final
     protected EntityRenderDispatcher entityRenderDispatcher;
 
+    @Shadow protected abstract boolean affectedByCulling(Entity entity);
+    @Shadow protected abstract AABB getBoundingBoxForCulling(Entity entity, float partialTick);
+
     @ModifyReturnValue(method = "getPackedLightCoords", at = @At("RETURN"))
     public final int getPackedLightCoords(final int original, final Entity arg, final float f) {
         final Vec3 lightProbeOffset = arg.getLightProbePosition(f).subtract(arg.getEyePosition(f));
         final Vector3d lightProbePosition = JOMLConversion.toJOML(Sable.HELPER.getEyePositionInterpolated(arg, f)).add(lightProbeOffset.x, lightProbeOffset.y, lightProbeOffset.z);
         final BlockPos blockpos = BlockPos.containing(lightProbePosition.x, lightProbePosition.y, lightProbePosition.z);
-        return LightTexture.pack(sable$getSubLevelAccountedBlockLight(original, arg.level(), LightLayer.BLOCK, blockpos, lightProbePosition),
+        return LightCoordsUtil.pack(sable$getSubLevelAccountedBlockLight(original, arg.level(), LightLayer.BLOCK, blockpos, lightProbePosition),
                 sable$getSubLevelAccountedSkyLight(original, arg.level(), LightLayer.SKY, blockpos, lightProbePosition));
     }
 
@@ -53,7 +57,7 @@ public abstract class EntityRendererMixin {
     private static int sable$getSubLevelAccountedSkyLight(final int original, final Level instance, final LightLayer lightLayer, final BlockPos blockPos, final Vector3dc probePosition) {
         final Iterable<SubLevel> all = Sable.HELPER.getAllIntersecting(instance, new BoundingBox3d(blockPos));
 
-        int baseBrightness = original == -1 ? instance.getBrightness(lightLayer, blockPos) : LightTexture.sky(original);
+        int baseBrightness = original == -1 ? instance.getBrightness(lightLayer, blockPos) : LightCoordsUtil.sky(original);
         final BlockPos.MutableBlockPos localPosition = new BlockPos.MutableBlockPos();
         final BlockPos.MutableBlockPos heightmapPos = new BlockPos.MutableBlockPos();
         final Vector3d tempProbePosition = new Vector3d();
@@ -100,7 +104,7 @@ public abstract class EntityRendererMixin {
     private static int sable$getSubLevelAccountedBlockLight(final int original, final Level instance, final LightLayer lightLayer, final BlockPos blockPos, final Vector3dc lightProbePosition) {
         final Iterable<SubLevel> all = Sable.HELPER.getAllIntersecting(instance, new BoundingBox3d(blockPos).expand(2.0));
 
-        int l = original == -1 ? instance.getBrightness(lightLayer, blockPos) : LightTexture.block(original);
+        int l = original == -1 ? instance.getBrightness(lightLayer, blockPos) : LightCoordsUtil.block(original);
         final BlockPos.MutableBlockPos probeBlockPos = new BlockPos.MutableBlockPos();
         final Vector3d tempProbePosition = new Vector3d();
 
@@ -113,8 +117,8 @@ public abstract class EntityRendererMixin {
     }
 
     @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
-    private <E extends Entity> void sable$shouldRender(final E entity, final Frustum frustum, final double pCamX, final double pCamY, final double pCamZ, final CallbackInfoReturnable<Boolean> cir) {
-        if (entity.noCulling) {
+    private <E extends Entity> void sable$shouldRender(final E entity, final Frustum frustum, final double pCamX, final double pCamY, final double pCamZ, final float partialTick, final CallbackInfoReturnable<Boolean> cir) {
+        if (!this.affectedByCulling(entity)) {
             cir.setReturnValue(true);
             return;
         }
@@ -122,8 +126,8 @@ public abstract class EntityRendererMixin {
         final ClientSubLevel subLevel = Sable.HELPER.getContainingClient(entity);
 
         if (subLevel != null) {
-            final Vec3 globalPos = subLevel.renderPose().transformPosition(entity.position());
-            final AABB aabb = new AABB(globalPos.x - 2.0D, globalPos.y - 2.0D, globalPos.z - 2.0D, globalPos.x + 2.0D, globalPos.y + 2.0D, globalPos.z + 2.0D);
+            final AABB aabb = new BoundingBox3d(this.getBoundingBoxForCulling(entity, partialTick))
+                    .transform(subLevel.renderPose(partialTick), new BoundingBox3d()).toMojang().inflate(0.5);
 
             cir.setReturnValue(frustum.isVisible(aabb));
 
@@ -134,17 +138,18 @@ public abstract class EntityRendererMixin {
         final SubLevel trackingSubLevel = Sable.HELPER.getTrackingSubLevel(entity);
 
         if (trackingSubLevel != null) {
-            final float pt = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(true);
-            final Vec3 positionInterpolated = Sable.HELPER.getEyePositionInterpolated(entity, pt)
+            final Vec3 positionInterpolated = Sable.HELPER.getEyePositionInterpolated(entity, partialTick)
                     .subtract(0.0, entity.getEyeHeight(), 0.0);
 
 
-            AABB aABB = entity.getBoundingBoxForCulling().inflate(0.5);
+            AABB aABB = this.getBoundingBoxForCulling(entity, partialTick).inflate(0.5);
             if (aABB.hasNaN() || aABB.getSize() == 0.0) {
                 aABB = new AABB(entity.getX() - 2.0, entity.getY() - 2.0, entity.getZ() - 2.0, entity.getX() + 2.0, entity.getY() + 2.0, entity.getZ() + 2.0);
             }
 
-            aABB = aABB.move(positionInterpolated.subtract(entity.position()));
+            final Vec3 nativePosition = new Vec3(Mth.lerp(partialTick, entity.xOld, entity.getX()),
+                    Mth.lerp(partialTick, entity.yOld, entity.getY()), Mth.lerp(partialTick, entity.zOld, entity.getZ()));
+            aABB = aABB.move(positionInterpolated.subtract(nativePosition));
 
             if (frustum.isVisible(aABB)) {
                 cir.setReturnValue(true);
@@ -152,7 +157,12 @@ public abstract class EntityRendererMixin {
                 if (entity instanceof final Leashable leashable) {
                     final Entity entity2 = leashable.getLeashHolder();
                     if (entity2 != null) {
-                        cir.setReturnValue(frustum.isVisible(entity2.getBoundingBoxForCulling()));
+                        AABB holderBounds = entity2.getInterpolatedBoundingBox(partialTick);
+                        final ClientSubLevel holderLevel = Sable.HELPER.getContainingClient(entity2);
+                        if (holderLevel != null) {
+                            holderBounds = new BoundingBox3d(holderBounds).transform(holderLevel.renderPose(partialTick), new BoundingBox3d()).toMojang();
+                        }
+                        cir.setReturnValue(frustum.isVisible(holderBounds));
                         return;
                     }
                 }

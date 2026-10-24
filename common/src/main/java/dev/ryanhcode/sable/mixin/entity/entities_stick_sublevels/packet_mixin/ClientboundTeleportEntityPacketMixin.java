@@ -1,9 +1,14 @@
 package dev.ryanhcode.sable.mixin.entity.entities_stick_sublevels.packet_mixin;
 
 import dev.ryanhcode.sable.mixinterface.entity.entities_stick_sublevels.packet_mixin.PacketActuallyInSubLevelExtension;
+import dev.ryanhcode.sable.networking.SubLevelPacketCodec;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,14 +22,12 @@ public class ClientboundTeleportEntityPacketMixin implements PacketActuallyInSub
     @Unique
     private boolean sable$actuallyInSubLevel;
 
-    @Inject(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("RETURN"))
-    private void sable$readActuallyInSubLevel(final FriendlyByteBuf friendlyByteBuf, final CallbackInfo ci) {
-        this.sable$setActuallyInSubLevel(friendlyByteBuf.readBoolean());
-    }
+    @Shadow @Final @Mutable
+    public static StreamCodec<FriendlyByteBuf, ClientboundTeleportEntityPacket> STREAM_CODEC;
 
-    @Inject(method = "write", at = @At("TAIL"))
-    private void sable$writeActuallyInSubLevel(final FriendlyByteBuf friendlyByteBuf, final CallbackInfo ci) {
-        friendlyByteBuf.writeBoolean(this.sable$actuallyInSubLevel);
+    @Inject(method = "<clinit>", at = @At("TAIL"))
+    private static void sable$extendCodec(final CallbackInfo ci) {
+        STREAM_CODEC = SubLevelPacketCodec.extend(STREAM_CODEC);
     }
 
     @Override

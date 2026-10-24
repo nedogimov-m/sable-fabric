@@ -6,16 +6,17 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.level.Level;
 import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
 import java.util.Optional;
 
-public record DimensionPhysics(ResourceLocation dimension, int priority, Optional<Float> universalDrag,
-                               Optional<Vector3f> baseGravity, Optional<Double> basePressure,
-                               Optional<BezierResourceFunction> pressureFunction, Optional<Vector3f> magneticNorth,
+public record DimensionPhysics(Identifier dimension, int priority, Optional<Float> universalDrag,
+                               Optional<Vector3fc> baseGravity, Optional<Double> basePressure,
+                               Optional<BezierResourceFunction> pressureFunction, Optional<Vector3fc> magneticNorth,
                                boolean ignoreChunks) {
     public static final Vector3f DEFAULT_GRAVITY = new Vector3f(0.0f, -11.0f, 0.0f);
     public static final Vector3f DEFAULT_MAGNETIC_NORTH = new Vector3f(0, 0, 0);
@@ -23,7 +24,7 @@ public record DimensionPhysics(ResourceLocation dimension, int priority, Optiona
     private static final float DEFAULT_UNIVERSAL_DRAG = 0.09f;
 
     public static final Codec<DimensionPhysics> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            ResourceLocation.CODEC.fieldOf("dimension").forGetter(DimensionPhysics::dimension),
+            Identifier.CODEC.fieldOf("dimension").forGetter(DimensionPhysics::dimension),
             Codec.intRange(0, Integer.MAX_VALUE).optionalFieldOf("priority", 1000).forGetter(DimensionPhysics::priority),
             Codec.optionalField("universal_drag", Codec.FLOAT, false).forGetter(DimensionPhysics::universalDrag),
             Codec.optionalField("base_gravity", ExtraCodecs.VECTOR3F, false).forGetter(DimensionPhysics::baseGravity),
@@ -35,7 +36,7 @@ public record DimensionPhysics(ResourceLocation dimension, int priority, Optiona
 
     public static final StreamCodec<ByteBuf, DimensionPhysics> STREAM_CODEC = StreamCodec.ofMember(
             (dim, buf) -> {
-                ResourceLocation.STREAM_CODEC.encode(buf, dim.dimension);
+                Identifier.STREAM_CODEC.encode(buf, dim.dimension);
                 ByteBufCodecs.INT.encode(buf, dim.priority);
                 ByteBufCodecs.FLOAT.apply(ByteBufCodecs::optional).encode(buf, dim.universalDrag);
                 ByteBufCodecs.VECTOR3F.apply(ByteBufCodecs::optional).encode(buf, dim.baseGravity);
@@ -45,7 +46,7 @@ public record DimensionPhysics(ResourceLocation dimension, int priority, Optiona
                 ByteBufCodecs.BOOL.encode(buf, dim.ignoreChunks);
             },
             buf -> new DimensionPhysics(
-                ResourceLocation.STREAM_CODEC.decode(buf),
+                Identifier.STREAM_CODEC.decode(buf),
                 ByteBufCodecs.INT.decode(buf),
                 ByteBufCodecs.FLOAT.apply(ByteBufCodecs::optional).decode(buf),
                 ByteBufCodecs.VECTOR3F.apply(ByteBufCodecs::optional).decode(buf),
@@ -95,9 +96,9 @@ public record DimensionPhysics(ResourceLocation dimension, int priority, Optiona
         final double finalSlope = -2 * smoothingPressure / (maxAltitude - smoothingAltitude);
         pressureFunction.addPoint(new BezierResourceFunction.BezierPoint(maxAltitude, 0, finalSlope));
 
-        final Vector3f north = level.dimensionType().natural() ? DEFAULT_MAGNETIC_NORTH : new Vector3f(0, 0, 0);
+        final Vector3fc north = DEFAULT_MAGNETIC_NORTH;
 
-        return new DimensionPhysics(level.dimension().location(),
+        return new DimensionPhysics(level.dimension().identifier(),
                 0,
                 Optional.of(DEFAULT_UNIVERSAL_DRAG),
                 Optional.of(DEFAULT_GRAVITY),

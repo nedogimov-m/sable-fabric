@@ -24,7 +24,7 @@ public class TamableAnimalMixin {
 	private static boolean sable$blockPosition(final TamableAnimal instance, final BlockPos blockPos, final Operation<Boolean> original) {
 		final SubLevel subLevel = Sable.HELPER.getTrackingSubLevel(instance.getOwner());
 		if(subLevel != null) {
-			final BlockPos pos = BlockPos.containing(subLevel.logicalPose().transformPositionInverse(blockPos.getCenter()));
+			final BlockPos pos = BlockPos.containing(subLevel.logicalPose().transformPositionInverse(net.minecraft.world.phys.Vec3.atCenterOf(blockPos)));
 			if (original.call(instance, pos)) {
 				final double dot = subLevel.logicalPose().transformNormal(new Vector3d(0, 1, 0)).dot(OrientedBoundingBox3d.UNIT_Y);
 

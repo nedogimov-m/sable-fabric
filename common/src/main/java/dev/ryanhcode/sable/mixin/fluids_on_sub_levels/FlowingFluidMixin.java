@@ -24,8 +24,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class FlowingFluidMixin {
 
 
-    @Inject(at = @At("HEAD"), method = "canSpreadTo(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/material/FluidState;Lnet/minecraft/world/level/material/Fluid;)Z", cancellable = true)
-    private void sable$canSpreadTo(final BlockGetter pLevel, final BlockPos pFromPos, final BlockState pFromBlockState, final Direction pDirection, final BlockPos pToPos, final BlockState pToBlockState, final FluidState pToFluidState, final Fluid pFluid, final CallbackInfoReturnable<Boolean> cir) {
+    @Inject(at = @At("HEAD"), method = "canPassThrough", cancellable = true)
+    private void sable$canSpreadTo(final BlockGetter pLevel, final Fluid pFluid, final BlockPos pFromPos, final BlockState pFromBlockState, final Direction pDirection, final BlockPos pToPos, final BlockState pToBlockState, final FluidState pToFluidState, final CallbackInfoReturnable<Boolean> cir) {
         if (!(pLevel instanceof final Level level)) {
             return;
         }

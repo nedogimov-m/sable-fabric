@@ -1,53 +1,33 @@
-<p align="center"><img src="./.idea/icon.png" alt="Logo" width="200"></p>
-<h1 align="center">Sable<br>
-<div align="center">
-   <a href="https://discord.gg/createaeronautics">
-        <img alt="Discord" src="https://img.shields.io/discord/937435293294919690?style=flat&logo=discord&label=Discord&color=5865F2">
-    </a>
-    <a href="https://modrinth.com/mod/sable">
-        <img src="https://img.shields.io/modrinth/dt/sable?logo=modrinth&amp;label=&amp;suffix=%20&amp;style=flat&amp;color=242629&amp;labelColor=5CA424&amp;logoColor=1C1C1C" alt="Modrinth Download"/>
-    </a>
-    <a href="https://www.curseforge.com/minecraft/mc-mods/sable">
-        <img src="https://img.shields.io/curseforge/dt/1312371?logo=curseforge&amp;label=&amp;suffix=%20&amp;style=flat&amp;color=242629&amp;labelColor=F16436&amp;logoColor=1C1C1C" alt="CurseForge Download"/>
-    </a>
-</div>
-</h1>
+# Sable — Fabric 26.3
 
-<p>Sable is an intrusive library mod for Minecraft that adds my take on interactive moving block structures, called "sub-levels". Sub-levels contain normal Minecraft chunks, entities, and block-entities, but exist at a separate dynamic position and orientation within Minecraft levels. My goal is to maximize compatibility, performance, and immersion of interacting with sub-levels, as simply as possible.</p>
+Interactive moving block structures and Rapier physics for Minecraft 26.3. This branch targets Fabric only. Original project: [RyanHCode/Sable](https://github.com/ryanhcode/sable). Licensing remains in `LICENSE.md`.
 
-### Compatibility Warning
+## Workspace
 
-Sable is an incredibly intrusive mod. It makes extensive use of mixins, and is prone to extensive compatibility issues
-with other mods.
+Clone the Fabric 26.3 branches into sibling directories:
 
-### Developers
+```sh
+git clone -b 26.3 https://github.com/nedogimov-m/imguimc-fabric.git imguimc
+git clone -b 26.3 https://github.com/nedogimov-m/Veil-Fabric.git veil
+git clone -b 26.3 https://github.com/nedogimov-m/sable-fabric.git sable
+git clone -b 26.3 https://github.com/nedogimov-m/Simulated-Fabric.git Aeronautics
+```
 
-For adding optional, and simple compatibility to a mod to function alongside Sable,
-view [Sable Companion](https://github.com/ryanhcode/sable-companion).
+Use JDK 25. Gradle 9.7 and Fabric Loom 1.18.4 are pinned by the wrapper/build files.
 
-View the [Sable Developer Wiki](https://github.com/ryanhcode/sable/wiki) for documentation and guides.
+## Build
 
-Join sable zone for development discussion: https://discord.gg/pnkzu2dtVA
+```sh
+./gradlew assemble --no-configuration-cache
+./gradlew test --tests dev.ryanhcode.sable.config.ConfigSpecTest --no-configuration-cache
+```
 
-# Building Rust Natives
+The Companion source project is included in `companion/`. Gradle composite builds compile the sibling Veil and ImGuiMC projects. Runtime dependencies are nested in the output `build/libs/sable-fabric-26.3-*.jar`.
 
-1. Install Docker from https://www.docker.com/get-started/ or from your relevant package manager
-2. Run `gradlew sable_rapier:buildImages` (only has to be done once)
-3. Run `gradlew sable_rapier:buildRustNatives`
+## Configuration
 
-### Thanks
+Common/client files remain `config/sable-common.toml` and `config/sable-client.toml`. Server settings belong to `<world>/serverconfig/sable-server.toml`, seeded from `defaultconfigs/sable-server.toml` for new worlds. Existing keys and values are preserved. Disk edits are checked once per second; server shutdown detaches the world and restores defaults.
 
-- Dimforge maintainers and contributors for their amazing work on the Rapier physics engine, included in the default
-  physics pipeline
-- Eriksonn for the sub-level splitting region algorithm, floating blocks, and amazing math wizardry
-- Ocelot for the fancy sub-level renderer and an incredible amount of optimization and API help
-- Cyvack for many Create compatibility fixes and features, assembly help, and general development
-- BeeIsYou for lift math, compatibility fixes, bug-fixes, and lots of general development
-- KyanBirb for assets, compatibility fixes, bug-fixes and lots of general development
-- Cake for bug-fixes and general development help
-- Rhyguy1 for morale
+Configuration uses the native Fabric lifecycle and validated TOML values. No ForgeConfigApiPort or other loader API is required. The four focused configuration tests cover persistence, invalid-value correction, live reload, world isolation and unbounded removal limits. A native integrated-world check also verified a disk edit updates every live physics pipeline and shutdown clears world settings.
 
-### Licensing
-
-Unless otherwise stated, all content in this repository is licensed under [Polyform Shield License 1.0.0](LICENSE.md) by
-RyanHCode.
+Optional integration APIs are genuine Fabric artifacts, pinned in `tools/fabric-compile-apis.json`. Older intermediary class descriptors are mapped only for compilation; these JARs are never bundled or treated as 26.3 runtime ports.

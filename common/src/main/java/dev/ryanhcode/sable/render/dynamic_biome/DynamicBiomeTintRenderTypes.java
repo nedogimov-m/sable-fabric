@@ -1,23 +1,16 @@
 package dev.ryanhcode.sable.render.dynamic_biome;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.renderer.RenderType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
+import foundry.veil.api.client.render.rendertype.VeilRenderType;
+import foundry.veil.api.client.render.rendertype.VeilRenderTypeBuilder;
+import net.minecraft.client.renderer.rendertype.RenderType;
 
-public class DynamicBiomeTintRenderTypes extends RenderType {
-    private static final String NAME = "dynamic_biome_tint";
-
-    public DynamicBiomeTintRenderTypes(final String string, final VertexFormat vertexFormat, final VertexFormat.Mode mode, final int i, final boolean bl, final boolean bl2, final Runnable runnable, final Runnable runnable2) {
-        super(string, vertexFormat, mode, i, bl, bl2, runnable, runnable2);
+/** Native pipeline construction replaces subclassing the old mutable RenderType. */
+public final class DynamicBiomeTintRenderTypes {
+    private DynamicBiomeTintRenderTypes() {}
+    public static RenderType create(final String name, final VertexFormat format, final PrimitiveTopology topology,
+                                     final int bufferSize, final VeilRenderTypeBuilder.State state) {
+        return VeilRenderType.create("dynamic_biome_tint/" + name, format, topology, bufferSize, true, false, false, state);
     }
-//
-//    public static void hello() {
-//        RenderType.CompositeState rendertype$state = RenderType.CompositeState.builder()
-//                .setShaderState(VeilRenderBridge.shaderState(Sable.path("hello_there")))
-//                .setTextureState(BLOCK_SHEET_MIPPED)
-//                .setLightmapState(LIGHTMAP)
-//                .createCompositeState(true);
-//
-//        RenderType.create(NAME,DefaultVertexFormat.BLOCK, VertexFormat.Mode.QUADS, RenderType.BIG_BUFFER_SIZE, true, false, rendertype$state);
-//
-//    }
 }

@@ -31,7 +31,7 @@ public class BeehiveBlockCallback extends FragileBlockCallback {
         final BlockEntity be = level.getBlockEntity(pos);
 
         if (be instanceof final BeehiveBlockEntity beehiveBlockEntity) {
-            final Vec3 center = pos.getCenter();
+            final Vec3 center = Vec3.atCenterOf(pos);
 
             final Player nearbyPlayer = level.getNearestPlayer(center.x, center.y, center.z, 4, true);
             beehiveBlockEntity.emptyAllLivingFromHive(nearbyPlayer, state, BeehiveBlockEntity.BeeReleaseStatus.EMERGENCY);

@@ -5,7 +5,7 @@ import dev.ryanhcode.sable.index.SableTags;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.vehicle.AbstractMinecart;
+import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,7 +22,7 @@ public abstract class AbstractMinecartMixin extends Entity {
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void sable$postTick(final CallbackInfo ci) {
-        if (!this.getType().is(SableTags.DESTROY_WHEN_LEAVING_PLOT)) {
+        if (!this.getType().builtInRegistryHolder().is(SableTags.DESTROY_WHEN_LEAVING_PLOT)) {
             return;
         }
 
@@ -30,7 +30,7 @@ public abstract class AbstractMinecartMixin extends Entity {
 
         // Destroy us if we're in #sable:destroy_when_leaving_plot and we've left the plot
         if (containingSubLevel != null && !this.getBoundingBox().intersects(containingSubLevel.getPlot().getBoundingBox().toAABB().inflate(0.5))) {
-            this.kill();
+            if (this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) this.kill(serverLevel);
         }
     }
 }

@@ -81,11 +81,6 @@ public class EmbeddedPlotLevelAccessor implements CommonLevelAccessor, ServerLev
     }
 
     @Override
-    public float getShade(final Direction direction, final boolean bl) {
-        return this.level.getShade(direction, bl);
-    }
-
-    @Override
     public LevelLightEngine getLightEngine() {
         return this.level.getLightEngine();
     }
@@ -127,7 +122,7 @@ public class EmbeddedPlotLevelAccessor implements CommonLevelAccessor, ServerLev
 
     @Override
     public @Nullable ChunkAccess getChunk(final int i, final int j, final ChunkStatus chunkStatus, final boolean bl) {
-        return this.level.getChunk(i + this.centerChunk.x, j + this.centerChunk.z, chunkStatus, bl);
+        return this.level.getChunk(i + this.centerChunk.x(), j + this.centerChunk.z(), chunkStatus, bl);
     }
 
     @Override
@@ -152,7 +147,7 @@ public class EmbeddedPlotLevelAccessor implements CommonLevelAccessor, ServerLev
 
     @Override
     public DifficultyInstance getCurrentDifficultyAt(final BlockPos blockPos) {
-        return this.level.getCurrentDifficultyAt(blockPos.offset(this.center));
+        return this.getLevel().getCurrentDifficultyAt(blockPos.offset(this.center));
     }
 
     @Override
@@ -167,7 +162,7 @@ public class EmbeddedPlotLevelAccessor implements CommonLevelAccessor, ServerLev
 
     @Override
     public boolean hasChunk(final int i, final int j) {
-        return this.level.hasChunk(i + this.centerChunk.x, j + this.centerChunk.z);
+        return this.level.hasChunk(i + this.centerChunk.x(), j + this.centerChunk.z());
     }
 
     @Override
@@ -176,7 +171,7 @@ public class EmbeddedPlotLevelAccessor implements CommonLevelAccessor, ServerLev
     }
 
     @Override
-    public void playSound(@Nullable final Player player, final BlockPos blockPos, final SoundEvent soundEvent, final SoundSource soundSource, final float f, final float g) {
+    public void playSound(@Nullable final Entity player, final BlockPos blockPos, final SoundEvent soundEvent, final SoundSource soundSource, final float f, final float g) {
         this.level.playSound(player, blockPos.offset(this.center), soundEvent, soundSource, f, g);
     }
 
@@ -186,7 +181,7 @@ public class EmbeddedPlotLevelAccessor implements CommonLevelAccessor, ServerLev
     }
 
     @Override
-    public void levelEvent(@Nullable final Player player, final int i, final BlockPos blockPos, final int j) {
+    public void levelEvent(@Nullable final Entity player, final int i, final BlockPos blockPos, final int j) {
         this.level.levelEvent(player, i, blockPos.offset(this.center), j);
     }
 
@@ -232,6 +227,24 @@ public class EmbeddedPlotLevelAccessor implements CommonLevelAccessor, ServerLev
     @Override
     public DimensionType dimensionType() {
         return this.level.dimensionType();
+    }
+
+    @Override
+    public net.minecraft.world.attribute.EnvironmentAttributeReader environmentAttributes() {
+        return new net.minecraft.world.attribute.EnvironmentAttributeReader() {
+            @Override
+            public <T> T getDimensionValue(final net.minecraft.world.attribute.EnvironmentAttribute<T> attribute) {
+                return level.environmentAttributes().getDimensionValue(attribute);
+            }
+
+            @Override
+            public <T> T getValue(final net.minecraft.world.attribute.EnvironmentAttribute<T> attribute,
+                                   final Vec3 position,
+                                   final net.minecraft.world.attribute.SpatialAttributeInterpolator interpolator) {
+                return level.environmentAttributes().getValue(attribute,
+                        position.add(center.getX(), center.getY(), center.getZ()), interpolator);
+            }
+        };
     }
 
     @Override

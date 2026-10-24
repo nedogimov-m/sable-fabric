@@ -10,7 +10,7 @@ import dev.ryanhcode.sable.sublevel.storage.region.SubLevelRegionFile;
 import dev.ryanhcode.sable.sublevel.storage.region.SubLevelStorageFile;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import net.minecraft.FileUtil;
+import net.minecraft.util.FileUtil;
 import net.minecraft.core.SectionPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.ExceptionCollector;
@@ -45,7 +45,7 @@ public class SubLevelStorage implements AutoCloseable {
     }
 
     private SubLevelRegionFile getRegionFile(final ChunkPos chunkPos) throws IOException {
-        final long longKey = ChunkPos.asLong(chunkPos.getRegionX(), chunkPos.getRegionZ());
+        final long longKey = ChunkPos.pack(chunkPos.getRegionX(), chunkPos.getRegionZ());
         final SubLevelRegionFile existingFile = this.regionCache.getAndMoveToFirst(longKey);
 
         if (existingFile != null) {
