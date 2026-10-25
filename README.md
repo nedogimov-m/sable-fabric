@@ -2,6 +2,8 @@
 
 Interactive moving block structures and Rapier physics for Minecraft 26.3. This branch targets Fabric only. Original project: [RyanHCode/Sable](https://github.com/ryanhcode/sable). Licensing remains in `LICENSE.md`.
 
+Native gameplay/rendering checks, confirmed fixes, exact JAR hashes and a reproducible runner: [GAMEPLAY_AUDIT.md](GAMEPLAY_AUDIT.md).
+
 ## Workspace
 
 Clone the Fabric 26.3 branches into sibling directories:

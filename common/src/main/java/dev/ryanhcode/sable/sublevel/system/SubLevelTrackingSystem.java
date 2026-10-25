@@ -82,7 +82,7 @@ public class SubLevelTrackingSystem implements SubLevelObserver {
             for (final UUID uuid : serverSubLevel.getTrackingPlayers()) {
                 final ServerPlayer player = this.level.getServer().getPlayerList().getPlayer(uuid);
 
-                if (player instanceof ServerPlayer) {
+                if (player != null && player.level() == this.level) {
                     player.connection.send(packet);
                 }
             }
@@ -195,8 +195,9 @@ public class SubLevelTrackingSystem implements SubLevelObserver {
                     // player has been removed
                     final ServerPlayer serverWidePlayer = this.level.getServer().getPlayerList().getPlayer(uuid);
 
-                    if (serverWidePlayer != null) {
-                        // they are still online, just not in this world
+                    if (serverWidePlayer != null && serverWidePlayer.level() == this.level) {
+                        // A dimension change already retires the old client container. A removal
+                        // carries only a relative plot slot and could erase a new world's body.
                         this.sendRemoval(VeilPacketManager.player(serverWidePlayer), serverSubLevel);
                     }
 

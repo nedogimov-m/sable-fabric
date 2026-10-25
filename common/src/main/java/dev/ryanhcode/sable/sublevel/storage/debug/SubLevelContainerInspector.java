@@ -7,6 +7,7 @@ import foundry.veil.api.client.editor.SingleWindowInspector;
 import imgui.ImDrawList;
 import imgui.ImGui;
 import imgui.ImVec2;
+import imgui.flag.ImGuiCond;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.server.IntegratedServer;
@@ -19,6 +20,13 @@ public class SubLevelContainerInspector extends SingleWindowInspector {
     public static final Component TITLE = Component.translatable("inspector.sable.sub_level_container.title");
 
     @Override
+    public void render() {
+        ImGui.setNextWindowSize(640f, 360f, ImGuiCond.FirstUseEver);
+        ImGui.setNextWindowSizeConstraints(320f, 180f, Float.MAX_VALUE, Float.MAX_VALUE);
+        super.render();
+    }
+
+    @Override
     protected void renderComponents() {
 
         final IntegratedServer singleplayerServer = Minecraft.getInstance().getSingleplayerServer();
@@ -26,18 +34,20 @@ public class SubLevelContainerInspector extends SingleWindowInspector {
         final ClientLevel clientLevel = minecraft.level;
 
         if (clientLevel != null) {
+            final ServerLevel serverLevel = singleplayerServer == null ? null : singleplayerServer.getLevel(clientLevel.dimension());
+            final int columns = serverLevel == null ? 1 : 2;
+            final float availableWidth = ImGui.getContentRegionAvailX() - ImGui.getStyle().getItemSpacingX() * (columns - 1);
+            final float sizePixels = Math.max(1f, Math.min(ImGui.getContentRegionAvailY(), availableWidth / columns));
 
             final SubLevelContainer clientPlotContainer = ((SubLevelContainerHolder) clientLevel).sable$getPlotContainer();
-            this.renderPlotContainer("Client", clientPlotContainer);
+            this.renderPlotContainer("Client", clientPlotContainer, sizePixels);
 
-            if (singleplayerServer != null) {
-                final ServerLevel serverLevel = singleplayerServer.getLevel(clientLevel.dimension());
-                assert serverLevel != null : "Server level is null";
+            if (serverLevel != null) {
 
                 ImGui.sameLine();
 
                 final SubLevelContainer serverPlotContainer = ((SubLevelContainerHolder) serverLevel).sable$getPlotContainer();
-                this.renderPlotContainer("Server", serverPlotContainer);
+                this.renderPlotContainer("Server", serverPlotContainer, sizePixels);
             }
 
         } else {
@@ -45,13 +55,12 @@ public class SubLevelContainerInspector extends SingleWindowInspector {
         }
     }
 
-    private void renderPlotContainer(final String name, final SubLevelContainer plotContainer) {
+    private void renderPlotContainer(final String name, final SubLevelContainer plotContainer, final float sizePixels) {
         final int sideLength = 1 << plotContainer.getLogSideLength();
 
         final float buttonStartX = ImGui.getCursorScreenPosX();
         final float buttonStartY = ImGui.getCursorScreenPosY();
 
-        final float sizePixels = ImGui.getWindowHeight() - 40f;
         ImGui.button(name, sizePixels, sizePixels);
 
         final ImDrawList drawList = ImGui.getWindowDrawList();
@@ -67,11 +76,11 @@ public class SubLevelContainerInspector extends SingleWindowInspector {
 
         final boolean hovered = ImGui.isItemHovered();
 
+        final BitSet occupancy = plotContainer.getOccupancy();
         for (int x = 0; x < sideLength; x++) {
             for (int z = 0; z < sideLength; z++) {
-                final BitSet occupancy = plotContainer.getOccupancy();
                 final boolean isOccupied = occupancy.get(plotContainer.getIndex(x, z));
-                final boolean hasSubLevel = plotContainer.getAllSubLevels().get(plotContainer.getIndex(x, z)) != null;
+                final boolean hasSubLevel = plotContainer.getSubLevel(x, z) != null;
 
                 final float xStart = buttonStartX + x * (sizePixels / sideLength);
                 final float zStart = buttonStartY + z * (sizePixels / sideLength);
@@ -91,7 +100,9 @@ public class SubLevelContainerInspector extends SingleWindowInspector {
             }
         }
 
-        final SubLevel selectedSubLevel = plotContainer.getSubLevel(selectedXCell, selectedYCell);
+        final SubLevel selectedSubLevel = hovered && selectedXCell >= 0 && selectedXCell < sideLength
+                && selectedYCell >= 0 && selectedYCell < sideLength
+                ? plotContainer.getSubLevel(selectedXCell, selectedYCell) : null;
 
         // The tooltip
 
